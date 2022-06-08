@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32526.322
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Berberis.Messaging", "Berberis.Messaging\Berberis.Messaging.csproj", "{B4704CA0-1087-4B7E-ACD9-9F600C6CC4DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Berberis.SampleApp", "Berberis.SampleApp\Berberis.SampleApp.csproj", "{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B4704CA0-1087-4B7E-ACD9-9F600C6CC4DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4704CA0-1087-4B7E-ACD9-9F600C6CC4DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4704CA0-1087-4B7E-ACD9-9F600C6CC4DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4704CA0-1087-4B7E-ACD9-9F600C6CC4DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2CD1B056-8BCA-461A-AF66-4E91D00894DE}
+	EndGlobalSection
+EndGlobal
