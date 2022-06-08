@@ -53,4 +53,7 @@ public readonly struct Stats
         AvgLatencyTime = avgLatencyTime;
         AvgServiceTime = avgServiceTime;
     }
+
+    public override string ToString() =>
+        $"Interval: {IntervalMs:N2}ms; In: {MessagesPerSecondIn:N2} msg/s; Out: {MessagesPerSecondOut:N2} msg/s; Total In: {TotalMessagesIn:N}; Total Out: {TotalMessagesOut:N}; Avg Latency: {AvgLatencyTime:N2} ms; Avg Svc: {AvgServiceTime:N2} ms";
 }

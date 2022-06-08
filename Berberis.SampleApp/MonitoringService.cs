@@ -2,12 +2,12 @@
 
 namespace Berberis.SampleApp;
 
-public sealed class ChannelsMonitoringService : BackgroundService
+public sealed class MonitoringService : BackgroundService
 {
-    private readonly ILogger<ChannelsMonitoringService> _logger;
+    private readonly ILogger<MonitoringService> _logger;
     private readonly ICrossBar _xBar;
 
-    public ChannelsMonitoringService(ILogger<ChannelsMonitoringService> logger, ICrossBar xBar)
+    public MonitoringService(ILogger<MonitoringService> logger, ICrossBar xBar)
     {
         _logger = logger;
         _xBar = xBar;
@@ -22,9 +22,14 @@ public sealed class ChannelsMonitoringService : BackgroundService
             foreach (var channel in _xBar.GetChannels())
             {
                 _logger.LogInformation("Channel:{channel}, Type:{type}", channel.Name, channel.BodyType.Name);
+
+                foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
+                {
+                    _logger.LogInformation("--- Subscription: {subId}, Stats: {stats}", subscription.Id, subscription.Statistics.GetStats().ToString());
+                }
             }
 
-            await Task.Delay(5000);
+            await Task.Delay(1000);
         }
     }
 }

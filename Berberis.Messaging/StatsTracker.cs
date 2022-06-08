@@ -25,7 +25,7 @@ public sealed class StatsTracker
 
     internal void IncNumOfMessages() => Interlocked.Increment(ref _totalMessagesInc);
 
-    internal void DecNumOfMessages() => Interlocked.Decrement(ref _totalMessagesDec);
+    internal void DecNumOfMessages() => Interlocked.Increment(ref _totalMessagesDec);
 
     internal long RecordLatency(long startTicks)
     {
@@ -67,7 +67,7 @@ public sealed class StatsTracker
             intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
             intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
 
-            timePassed = (ticks - _lastTicks) / MsRatio;
+            timePassed = (ticks - _lastTicks) / Stopwatch.Frequency;
 
             if (reset)
             {
@@ -87,7 +87,7 @@ public sealed class StatsTracker
         var avgLatencyTime = intervalMessagesDec == 0 ? 0 : intervalLatencyTimeMs / intervalMessagesDec;
         var avgServiceTime = intervalMessagesDec == 0 ? 0 : intervalSvcTimeMs / intervalMessagesDec;
 
-        return new Stats(timePassed,
+        return new Stats(timePassed * 1000,
             intervalMessagesInc / timePassed,
             intervalMessagesDec / timePassed,
             totalMesssagesInc,

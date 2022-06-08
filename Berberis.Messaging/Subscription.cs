@@ -43,7 +43,7 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
 
-    internal StatsTracker Statistics { get; }
+    public StatsTracker Statistics { get; }
 
     internal bool TryWrite(Message<TBody> message)
     {

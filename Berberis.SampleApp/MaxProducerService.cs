@@ -1,0 +1,43 @@
+﻿using Berberis.Messaging;
+
+namespace Berberis.SampleApp;
+
+public sealed class MaxProducerService : BackgroundService
+{
+    private readonly ICrossBar _xBar;
+
+    public MaxProducerService(ICrossBar xBar)
+    {
+        _xBar = xBar;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await Task.Delay(3000);
+
+        var destination = "number.inc";
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var p1 = Task.Run(() =>
+            {
+                for (long i = 0; i < long.MaxValue; i++)
+                {
+                    _xBar.Publish(destination, i);
+                    //await Task.Delay(100);
+                }
+            });
+
+            //var p2 = Task.Run(() =>
+            //{
+            //    for (long i = 0; i < long.MaxValue; i++)
+            //    {
+            //        _xBar.Publish(destination, i);
+            //        //await Task.Delay(100);
+            //    }
+            //});
+
+            await Task.WhenAll(p1);
+        }
+    }
+}

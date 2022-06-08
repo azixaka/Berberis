@@ -97,7 +97,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         {
             //create, register and return subscription
             long id = Interlocked.Increment(ref _globalSubId);
-            
+
             var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
                 id, bufferCapacity, slowConsumerStrategy, handler,
                 () => Unsubscribe(channelName, id));
@@ -127,6 +127,25 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return _channels
                     .Select(kvp => new ChannelInfo { Name = kvp.Key, BodyType = kvp.Value.Value.BodyType })
                     .ToList();
+    }
+
+    public IReadOnlyCollection<SubscriptionInfo> GetChannelSubscriptions(string channelName)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            return channel.Value.Subscriptions
+                .Select(kvp =>
+                {
+                    return new SubscriptionInfo
+                    {
+                        Id = kvp.Value.Id,
+                        Statistics = kvp.Value.Statistics
+                };
+                })
+                .ToList();
+        }
+
+        return null;
     }
 
     public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);

@@ -23,7 +23,7 @@ public sealed class ProcessesConsumerService2 : BackgroundService
         using var subscription = _xBar.Subscribe<ProcessInfo>(destination,
             msg =>
             {
-                _logger.LogInformation("Subscription [{subId}] got Message [Id={msgId}, Ms={cpuTime}]", subId, msg.Id, msg.Body.CpuTimeMs);
+                _logger.LogDebug("Subscription [{subId}] got Message [Id={msgId}, Ms={cpuTime}]", subId, msg.Id, msg.Body.CpuTimeMs);
                 return ValueTask.CompletedTask;
             });
 

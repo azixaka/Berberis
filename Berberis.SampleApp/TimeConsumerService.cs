@@ -28,7 +28,6 @@ public sealed class TimeConsumerService : BackgroundService
             });
 
         subId = subscription.Id;
-
         await subscription.RunReadLoopAsync();
     }
 }
