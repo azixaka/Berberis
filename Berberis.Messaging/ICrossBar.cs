@@ -11,7 +11,8 @@ public interface ICrossBar
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
         bool fetchState = false,
         SlowConsumerStrategy slowConsumerStrategy = SlowConsumerStrategy.SkipUpdates,
-        int? bufferCapacity = null);
+        int? bufferCapacity = null,
+        int conflationIntervalMilliseconds = Timeout.Infinite);
 
     long GetNextCorrelationId();
 }

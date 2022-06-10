@@ -12,7 +12,7 @@ partial class CrossBar
 
         public void Update(Message<TBody> message)
         {
-            _state.AddOrUpdate(message.Key!, message, (_, _) => message);
+            _state[message.Key] = message;
         }
 
         public IEnumerable<Message<TBody>> GetState()

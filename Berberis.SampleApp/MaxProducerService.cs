@@ -21,9 +21,13 @@ public sealed class MaxProducerService : BackgroundService
         {
             var p1 = Task.Run(() =>
             {
+                int key = 0;
+
                 for (long i = 0; i < long.MaxValue; i++)
                 {
-                    _xBar.Publish(destination, i);
+                    _xBar.Publish(destination, i, key: key.ToString(), store: true);
+                    if (key++ > 100)
+                        key = 0;
                     //await Task.Delay(100);
                 }
             });

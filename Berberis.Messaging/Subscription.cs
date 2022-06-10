@@ -6,26 +6,29 @@ namespace Berberis.Messaging;
 public sealed partial class Subscription<TBody> : ISubscription
 {
     private readonly ILogger<Subscription<TBody>> _logger;
+    private readonly int _conflationIntervalMilliseconds;
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
     private Func<IEnumerable<Message<TBody>>>? _stateFactory;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
-        long id, int? boundedCapacity, SlowConsumerStrategy slowConsumerStrategy,
+        long id, int? bufferCapacity, int conflationIntervalMilliseconds,
+        SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
         Func<IEnumerable<Message<TBody>>>? stateFactory)
     {
         _logger = logger;
         Id = id;
+        _conflationIntervalMilliseconds = conflationIntervalMilliseconds;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
         _disposeAction = disposeAction;
         _stateFactory = stateFactory;
 
-        _channel = boundedCapacity.HasValue
-            ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(boundedCapacity.Value)
+        _channel = bufferCapacity.HasValue
+            ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(bufferCapacity.Value)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = false,
@@ -64,6 +67,8 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     public async Task RunReadLoopAsync(CancellationToken token = default)
     {
+        //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
+
         await Task.Yield();
 
         var stateFactory = Interlocked.Exchange(ref _stateFactory, null);
@@ -72,7 +77,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         {
             foreach (var message in stateFactory())
             {
-                var task = ExecuteMessage(message, 0);
+                var task = ProcessMessage(message, 0);
                 if (!task.IsCompleted)
                     await task;
             }
@@ -85,14 +90,16 @@ public sealed partial class Subscription<TBody> : ISubscription
                 var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.DecNumOfMessages();
 
-                var task = ExecuteMessage(message, latencyTicks);
+                //todo: conflate/release here
+
+                var task = ProcessMessage(message, latencyTicks);
                 if (!task.IsCompleted)
                     await task;
             }
         }
     }
 
-    private async Task ExecuteMessage(Message<TBody> message, long latencyTicks)
+    private async Task ProcessMessage(Message<TBody> message, long latencyTicks)
     {
         var beforeServiceTicks = StatsTracker.GetTicks();
 

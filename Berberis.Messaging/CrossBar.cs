@@ -96,7 +96,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
-                                          bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity)
+                                          bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
+                                          int conflationIntervalMilliseconds)
     {
         EnsureNotDisposed();
 
@@ -119,15 +120,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             }
 
             var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, bufferCapacity, slowConsumerStrategy, handler,
+                                                       id, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
                                                        stateFactory);
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
-                //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
-                //TODO: add DELETE key/RESET state
-
                 _logger.LogInformation("Subscribed [{id}] on channel [{channel}]", id, channelName);
             }
             else { } // can't happen due to atomic id increments above
@@ -143,6 +141,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             throw new InvalidOperationException($"Can't subscribe on channel [{channelName}] with type [{subType.Name}] as it's already registered with type [{channel.BodyType.Name}]");
         }
     }
+
+    //TODO: add DELETE key/RESET state
 
     public IReadOnlyList<ChannelInfo> GetChannels()
     {

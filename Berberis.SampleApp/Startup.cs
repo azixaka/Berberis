@@ -24,9 +24,9 @@ public sealed class Startup
         services.AddSingleton<ICrossBar, CrossBar>()
                 .AddHostedService<StatefulProducerService>()
                 .AddHostedService<StatefulConsumerService>()
-                //.AddHostedService<MonitoringService>()
-                //.AddHostedService<MaxProducerService>()
-                //.AddHostedService<MaxConsumerService>();
+                .AddHostedService<MonitoringService>()
+                .AddHostedService<MaxProducerService>()
+                .AddHostedService<MaxConsumerService>();
                 //.AddHostedService<ProcessesProducerService>()
                 //.AddHostedService<TimeProducerService>()
                 //.AddHostedService<TimeConsumerService>()
