@@ -55,5 +55,5 @@ public readonly struct Stats
     }
 
     public override string ToString() =>
-        $"Interval: {IntervalMs:N2}ms; In: {MessagesPerSecondIn:N2} msg/s; Out: {MessagesPerSecondOut:N2} msg/s; Total In: {TotalMessagesIn:N}; Total Out: {TotalMessagesOut:N}; Avg Latency: {AvgLatencyTime:N2} ms; Avg Svc: {AvgServiceTime:N2} ms";
+        $"Int: {IntervalMs:N0} ms; In: {MessagesPerSecondIn:N1} msg/s; Out: {MessagesPerSecondOut:N1} msg/s; Total In: {TotalMessagesIn:N0}; Total Out: {TotalMessagesOut:N0}; Avg Latency: {AvgLatencyTime:N4} ms; Avg Svc: {AvgServiceTime:N4} ms";
 }

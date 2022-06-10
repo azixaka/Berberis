@@ -9,17 +9,20 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
+    private Func<IEnumerable<Message<TBody>>>? _stateFactory;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
         long id, int? boundedCapacity, SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
-        Action disposeAction)
+        Action disposeAction,
+        Func<IEnumerable<Message<TBody>>>? stateFactory)
     {
         _logger = logger;
         Id = id;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
         _disposeAction = disposeAction;
+        _stateFactory = stateFactory;
 
         _channel = boundedCapacity.HasValue
             ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(boundedCapacity.Value)
@@ -63,6 +66,18 @@ public sealed partial class Subscription<TBody> : ISubscription
     {
         await Task.Yield();
 
+        var stateFactory = Interlocked.Exchange(ref _stateFactory, null);
+
+        if (stateFactory != null)
+        {
+            foreach (var message in stateFactory())
+            {
+                var task = ExecuteMessage(message, 0);
+                if (!task.IsCompleted)
+                    await task;
+            }
+        }
+
         while (await _channel.Reader.WaitToReadAsync(token))
         {
             while (_channel.Reader.TryRead(out var message))
@@ -70,21 +85,28 @@ public sealed partial class Subscription<TBody> : ISubscription
                 var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.DecNumOfMessages();
 
-                var beforeServiceTicks = StatsTracker.GetTicks();
-
-                var task = _handleFunc(message);
+                var task = ExecuteMessage(message, latencyTicks);
                 if (!task.IsCompleted)
                     await task;
-
-                var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
-
-                if (_logger.IsEnabled(LogLevel.Trace))
-                {
-                    LogStats(message.Id,
-                        StatsTracker.TicksToTimeMs(svcTimeTicks),
-                        StatsTracker.TicksToTimeMs(latencyTicks));
-                }
             }
+        }
+    }
+
+    private async Task ExecuteMessage(Message<TBody> message, long latencyTicks)
+    {
+        var beforeServiceTicks = StatsTracker.GetTicks();
+
+        var task = _handleFunc(message);
+        if (!task.IsCompleted)
+            await task;
+
+        var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
+
+        if (_logger.IsEnabled(LogLevel.Trace))
+        {
+            LogStats(message.Id,
+                StatsTracker.TicksToTimeMs(svcTimeTicks),
+                StatsTracker.TicksToTimeMs(latencyTicks));
         }
     }
 

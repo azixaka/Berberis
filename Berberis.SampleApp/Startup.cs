@@ -22,14 +22,17 @@ public sealed class Startup
         services.AddOptions();
 
         services.AddSingleton<ICrossBar, CrossBar>()
-                .AddHostedService<MonitoringService>()
-                .AddHostedService<MaxProducerService>()
-                .AddHostedService<MaxConsumerService>();
+                .AddHostedService<StatefulProducerService>()
+                .AddHostedService<StatefulConsumerService>()
+                //.AddHostedService<MonitoringService>()
+                //.AddHostedService<MaxProducerService>()
+                //.AddHostedService<MaxConsumerService>();
                 //.AddHostedService<ProcessesProducerService>()
                 //.AddHostedService<TimeProducerService>()
                 //.AddHostedService<TimeConsumerService>()
                 //.AddHostedService<ProcessesConsumerService1>()
                 //.AddHostedService<ProcessesConsumerService2>();
+                ;
     }
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env)

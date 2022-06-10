@@ -21,16 +21,21 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
-    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key)
+    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store)
     {
         var ticks = StatsTracker.GetTicks();
         var timestamp = DateTime.UnixEpoch;
 
         EnsureNotDisposed();
 
+        if (store && string.IsNullOrEmpty(key))
+        {
+            throw new FailedPublishException($"Stored message must have key specified. Channel: {channelName}");
+        }
+
         var pubType = typeof(TBody);
 
-        var channel = GetOrAddChannel(channelName, pubType);
+        var channel = GetOrAddChannel<TBody>(channelName, pubType);
 
         // if channel was already there and its type matches the type passed with this call
         if (channel.BodyType == pubType)
@@ -40,6 +45,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             var msg = new Message<TBody>(channel.NextMessageId(),
                                          timestamp.ToBinary(), correlationId,
                                          key, ticks, body);
+
+            if (store)
+            {
+                var messageStore = channel.GetMessageStore<TBody>();
+                messageStore.Update(msg);
+            }
 
             // walk through all the subscriptions on this channel...
             foreach (var (_, subObj) in channel.Subscriptions)
@@ -84,13 +95,14 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
-    public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity)
+    public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
+                                          bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity)
     {
         EnsureNotDisposed();
 
         var subType = typeof(TBody);
 
-        var channel = GetOrAddChannel(channelName, subType);
+        var channel = GetOrAddChannel<TBody>(channelName, subType);
 
         // if channel was already there and its type matches the type passed with this call
         if (channel.BodyType == subType)
@@ -98,12 +110,24 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             //create, register and return subscription
             long id = Interlocked.Increment(ref _globalSubId);
 
+            Func<IEnumerable<Message<TBody>>> stateFactory = null;
+
+            if (fetchState)
+            {
+                var messageStore = channel.GetMessageStore<TBody>();
+                stateFactory = messageStore.GetState;
+            }
+
             var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                id, bufferCapacity, slowConsumerStrategy, handler,
-                () => Unsubscribe(channelName, id));
+                                                       id, bufferCapacity, slowConsumerStrategy, handler,
+                                                       () => Unsubscribe(channelName, id),
+                                                       stateFactory);
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
+                //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
+                //TODO: add DELETE key/RESET state
+
                 _logger.LogInformation("Subscribed [{id}] on channel [{channel}]", id, channelName);
             }
             else { } // can't happen due to atomic id increments above
@@ -140,7 +164,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     {
                         Id = kvp.Value.Id,
                         Statistics = kvp.Value.Statistics
-                };
+                    };
                 })
                 .ToList();
         }
@@ -150,7 +174,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
 
-    private Channel GetOrAddChannel(string channel, Type bodyType)
+    private Channel GetOrAddChannel<TBody>(string channel, Type bodyType)
     {
         //ConcurrentDictionary's create factory can be called multiple times but only one result wins and gets added as a value for that key
         //By wrapping it with Lazy, we ensure we materialise it only once (.Value)
@@ -158,7 +182,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             c => new Lazy<Channel>(() =>
             {
                 _logger.LogInformation("Channel [{channel}] for type [{bodyType}] is created.", c, bodyType);
-                return new Channel { BodyType = bodyType };
+                return new Channel
+                {
+                    BodyType = bodyType
+                };
             }))
             .Value;
     }

@@ -43,7 +43,7 @@ public sealed class StatsTracker
 
     public Stats GetStats(bool reset = true)
     {
-        var ticks = Stopwatch.GetTimestamp();
+        var ticks = GetTicks();
 
         var totalMesssagesInc = Interlocked.Read(ref _totalMessagesInc);
         var totalMesssagesDec = Interlocked.Read(ref _totalMessagesDec);
