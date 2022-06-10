@@ -22,11 +22,13 @@ public sealed class Startup
         services.AddOptions();
 
         services.AddSingleton<ICrossBar, CrossBar>()
-                .AddHostedService<StatefulProducerService>()
-                .AddHostedService<StatefulConsumerService>()
                 .AddHostedService<MonitoringService>()
-                .AddHostedService<MaxProducerService>()
-                .AddHostedService<MaxConsumerService>();
+                .AddHostedService<StockPriceProducerService>()
+                .AddHostedService<StockPriceConsumerService>()
+                //.AddHostedService<StatefulProducerService>()
+                //.AddHostedService<StatefulConsumerService>()
+                //.AddHostedService<MaxProducerService>()
+                //.AddHostedService<MaxConsumerService>()
                 //.AddHostedService<ProcessesProducerService>()
                 //.AddHostedService<TimeProducerService>()
                 //.AddHostedService<TimeConsumerService>()
