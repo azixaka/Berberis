@@ -213,6 +213,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     sub.TryDispose();
                 }
             }
+
+            _channels.Clear();
         }
     }
 
