@@ -12,10 +12,11 @@ public class StockPriceConsumer : BerberisConsumer<StockPrice>
         _logger = logger;
     }
 
-    protected override ValueTask Consume(Message<StockPrice> message, ISubscription subscription)
+    protected override ValueTask Consume(Message<StockPrice> message)
     {
-        _logger.LogInformation("Subscription [{SubId}] got Message {MsgId}. [{Symbol}={Price:N4}]", subscription.Id,
+        _logger.LogInformation("Subscription [{SubId}] got Message {MsgId}. [{Symbol}={Price:N4}]", Subscription.Id,
             message.Id, message.Body.Symbol, message.Body.Price);
+        
         return ValueTask.CompletedTask;
     }
 }

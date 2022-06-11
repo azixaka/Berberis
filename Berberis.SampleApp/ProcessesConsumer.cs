@@ -12,9 +12,9 @@ public class ProcessesConsumer : BerberisConsumer<ProcessInfo>
         _logger = logger;
     }
     
-    protected override ValueTask Consume(Message<ProcessInfo> message, ISubscription subscription)
+    protected override ValueTask Consume(Message<ProcessInfo> message)
     {
-        _logger.LogInformation("Subscription [{SubId}] got Message [Id={MsgId}, Ms={CpuTime}]", subscription.Id,
+        _logger.LogInformation("Subscription [{SubId}] got Message [Id={MsgId}, Ms={CpuTime}]", Subscription.Id,
             message.Id, message.Body.CpuTimeMs);
         
         return ValueTask.CompletedTask;

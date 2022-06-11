@@ -11,18 +11,21 @@ public abstract class BerberisConsumer<T>: IBerberisConsumer
     /// Gets channel name this consumer is supposed to subscribe on.
     /// </summary>
     public string Channel { get; }
+
+    /// <summary>
+    /// Current subscription handle.
+    /// </summary>
+    protected ISubscription Subscription { get; private set; } = null!;
     
     protected BerberisConsumer(string channel)
     {
         Channel = channel;
     }
 
-    protected abstract ValueTask Consume(Message<T> message, ISubscription subscription);
+    protected abstract ValueTask Consume(Message<T> message);
 
     public ISubscription Start(ICrossBar crossBar)
     {
-        ISubscription subscription = null!;
-        // ReSharper disable once AccessToModifiedClosure
-        return subscription = crossBar.Subscribe<T>(Channel, message => Consume(message, subscription));
+        return Subscription = crossBar.Subscribe<T>(Channel, Consume);
     }
 }
