@@ -23,7 +23,7 @@ public sealed class StockPriceConsumerService : BackgroundService
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
             msg =>
             {
-                _logger.LogInformation("Subscription [{subId}] got Message {msgId}. [{symbol}={price:N4}]", subId, msg.Id, msg.Body.Symbol, msg.Body);
+                _logger.LogInformation("Subscription [{subId}] got Message {msgId}. [{symbol}={price:N4}]", subId, msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
             }, fetchState: true, conflationIntervalMilliseconds: 1000);
 

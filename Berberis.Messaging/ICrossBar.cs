@@ -14,5 +14,8 @@ public interface ICrossBar
         int? bufferCapacity = null,
         int conflationIntervalMilliseconds = Timeout.Infinite);
 
+    bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
+    bool ResetStore<TBody>(string channelName);
+
     long GetNextCorrelationId();
 }

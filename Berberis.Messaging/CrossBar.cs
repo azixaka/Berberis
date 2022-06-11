@@ -142,7 +142,37 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
-    //TODO: add DELETE key/RESET state
+    public bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            var messageStore = channel.Value.GetMessageStore<TBody>();
+
+            if (messageStore != null)
+            {
+               return messageStore.TryDelete(key, out message);
+            }
+        }
+
+        message = Message<TBody>.Default;
+        return false;
+    }
+
+    public bool ResetStore<TBody>(string channelName)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            var messageStore = channel.Value.GetMessageStore<TBody>();
+
+            if (messageStore != null)
+            {
+                messageStore.Reset();
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public IReadOnlyList<ChannelInfo> GetChannels()
     {
