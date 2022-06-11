@@ -1,4 +1,5 @@
 ﻿using Berberis.Messaging;
+using Berberis.Messaging.AspNetCore;
 using Serilog;
 
 namespace Berberis.SampleApp;
@@ -34,6 +35,11 @@ public sealed class Startup
                 //.AddHostedService<TimeConsumerService>()
                 //.AddHostedService<ProcessesConsumerService1>()
                 //.AddHostedService<ProcessesConsumerService2>();
+                ;
+
+        services.AddBerberisConsumerHostedService()
+                .AddBerberisConsumer<StockPriceConsumer>()
+                //.AddBerberisConsumer<ProcessesConsumer>()
                 ;
     }
 

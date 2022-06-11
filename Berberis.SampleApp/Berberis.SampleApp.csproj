@@ -17,6 +17,7 @@
 		<PackageReference Include="Serilog.Exceptions" Version="8.2.0" />
 		<PackageReference Include="Serilog.Settings.Configuration" Version="3.3.0" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
+		<ProjectReference Include="..\Berberis.Messaging.AspNetCore\Berberis.Messaging.AspNetCore.csproj" />
 
 		<ProjectReference Include="..\Berberis.Messaging\Berberis.Messaging.csproj" />
 	</ItemGroup>

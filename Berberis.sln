@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Berberis.Messaging", "Berbe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Berberis.SampleApp", "Berberis.SampleApp\Berberis.SampleApp.csproj", "{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Berberis.Messaging.AspNetCore", "Berberis.Messaging.AspNetCore\Berberis.Messaging.AspNetCore.csproj", "{1214CDB0-C06E-477E-9CC8-6852C7C18F43}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD7BBFEB-0D8F-442C-B7D2-35E83732D5DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1214CDB0-C06E-477E-9CC8-6852C7C18F43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1214CDB0-C06E-477E-9CC8-6852C7C18F43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1214CDB0-C06E-477E-9CC8-6852C7C18F43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1214CDB0-C06E-477E-9CC8-6852C7C18F43}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
