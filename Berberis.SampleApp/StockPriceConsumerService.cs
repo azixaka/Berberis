@@ -15,7 +15,7 @@ public sealed class StockPriceConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(5000);
 
         var destination = "stock.prices";
 
@@ -25,7 +25,7 @@ public sealed class StockPriceConsumerService : BackgroundService
             {
                 _logger.LogInformation("Subscription [{subId}] got Message {msgId}. [{symbol}={price:N4}]", subId, msg.Id, msg.Body.Symbol, msg.Body);
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, fetchState: true, conflationIntervalMilliseconds: 1000);
 
         subId = subscription.Id;
         await subscription.RunReadLoopAsync();

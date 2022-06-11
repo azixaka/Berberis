@@ -24,12 +24,12 @@ public sealed class StockPriceProducerService : BackgroundService
                     };
 
         _minTickInterval = 10;
-        _maxTickInterval = 200;
+        _maxTickInterval = 50;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(1000);
 
         var destination = "stock.prices";
 
