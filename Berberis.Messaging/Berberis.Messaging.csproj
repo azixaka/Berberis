@@ -1,10 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Berberis.Messaging</PackageId>
+		<Version>1.0.1</Version>
+		<Company>Azik Gudratov</Company>
+		<Authors>Azik Gudratov</Authors>
+		<PackageDescription>Berberis is an in-process message broker implementation</PackageDescription>
+		<RepositoryUrl>https://github.com/azixaka/Berberis</RepositoryUrl>
+		<PackageIcon>berberis.png</PackageIcon>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Include="berberis.png" Pack="true" PackagePath="" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />

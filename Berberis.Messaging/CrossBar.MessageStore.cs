@@ -22,5 +22,15 @@ partial class CrossBar
                 yield return message;
             }
         }
+
+        internal bool TryDelete(string key, out Message<TBody> message)
+        {
+            return _state.TryRemove(key, out message);
+        }
+
+        internal void Reset()
+        {
+            _state.Clear();
+        }
     }
 }

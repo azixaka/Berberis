@@ -21,6 +21,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
+    public ValueTask Publish<TBody>(string channel, TBody body) => Publish<TBody>(channel, body, 0, null, false);
+    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish<TBody>(channel, body, 0, key, store);
+    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish<TBody>(channel, body, correlationId, null, false);
+
     public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store)
     {
         var ticks = StatsTracker.GetTicks();
@@ -38,7 +42,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var channel = GetOrAddChannel<TBody>(channelName, pubType);
 
         // if channel was already there and its type matches the type passed with this call
-        if (channel.BodyType == pubType)
+        if (pubType == channel.BodyType)
         {
             channel.Statistics.IncNumOfMessages();
 
@@ -86,7 +90,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
         else // if channel exists but its type is different to the TBody being published here...
         {
-            _logger.LogWarning("Failed to publish [{pubType}] message type on channel [{channel}] registered with type [{pubType}]",
+            _logger.LogWarning("Failed to publish [{pubType}] message type on channel [{channel}] registered with type [{chanType}]",
                 pubType.Name, channelName, channel.BodyType.Name);
 
             return ValueTask.FromException(new InvalidOperationException($"Can't publish [{pubType.Name}] message type on channel [{channelName}] registered with type [{channel.BodyType.Name}]"));
@@ -94,6 +98,15 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         return ValueTask.CompletedTask;
     }
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler)
+        => Subscribe<TBody>(channel, handler, false, SlowConsumerStrategy.SkipUpdates, null, -1);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState)
+        => Subscribe<TBody>(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds)
+        => Subscribe<TBody>(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
 
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
@@ -142,7 +155,37 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
-    //TODO: add DELETE key/RESET state
+    public bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            var messageStore = channel.Value.GetMessageStore<TBody>();
+
+            if (messageStore != null)
+            {
+                return messageStore.TryDelete(key, out message);
+            }
+        }
+
+        message = Message<TBody>.Default;
+        return false;
+    }
+
+    public bool ResetStore<TBody>(string channelName)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            var messageStore = channel.Value.GetMessageStore<TBody>();
+
+            if (messageStore != null)
+            {
+                messageStore.Reset();
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public IReadOnlyList<ChannelInfo> GetChannels()
     {

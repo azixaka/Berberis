@@ -70,17 +70,19 @@ public sealed partial class Subscription<TBody> : ISubscription
         //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
 
         await Task.Yield();
+        await SendState();
 
-        var stateFactory = Interlocked.Exchange(ref _stateFactory, null);
+        Dictionary<string, Message<TBody>>? localState = null;
+        Dictionary<string, Message<TBody>>? localStateBacking = null;
+        SemaphoreSlim? semaphore = null;
+        Task? flusherTask = null;
 
-        if (stateFactory != null)
+        if (_conflationIntervalMilliseconds != Timeout.Infinite)
         {
-            foreach (var message in stateFactory())
-            {
-                var task = ProcessMessage(message, 0);
-                if (!task.IsCompleted)
-                    await task;
-            }
+            localState = new Dictionary<string, Message<TBody>>();
+            localStateBacking = new Dictionary<string, Message<TBody>>();
+            semaphore = new SemaphoreSlim(1, 1);
+            flusherTask = FlusherLoop();
         }
 
         while (await _channel.Reader.WaitToReadAsync(token))
@@ -90,9 +92,92 @@ public sealed partial class Subscription<TBody> : ISubscription
                 var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.DecNumOfMessages();
 
-                //todo: conflate/release here
+                if (localState == null || string.IsNullOrEmpty(message.Key))
+                {
+                    var task = ProcessMessage(message, latencyTicks);
+                    if (!task.IsCompleted)
+                        await task;
+                }
+                else
+                {
+                    if (!semaphore!.Wait(0))
+                        await semaphore!.WaitAsync();
 
-                var task = ProcessMessage(message, latencyTicks);
+                    try
+                    {
+                        localState[message.Key] = message;
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }
+
+                //if conflation enabled add to the local state here
+                //if we're over the period then flush data
+                //otherwise schedule a flush in a period residual time
+            }
+        }
+
+        if (flusherTask != null)
+        {
+            await flusherTask;
+            semaphore!.Dispose();
+        }
+
+        async Task FlusherLoop()
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(_conflationIntervalMilliseconds, token);
+
+                if (!semaphore!.Wait(0))
+                    await semaphore!.WaitAsync(token);
+
+                Dictionary<string, Message<TBody>>? state = null;
+
+                try
+                {
+                    if (localState.Count > 0)
+                    {
+                        state = localState;
+                        (localState, localStateBacking) = (localStateBacking, localState);
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+
+                if (state != null)
+                {
+                    try
+                    {
+                        foreach (var (_, message) in state)
+                        {
+                            var task = ProcessMessage(message, 0); //todo: latency for logging!
+                            if (!task.IsCompleted)
+                                await task;
+                        }
+                    }
+                    finally
+                    {
+                        state.Clear();
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task SendState()
+    {
+        var stateFactory = Interlocked.Exchange(ref _stateFactory, null);
+
+        if (stateFactory != null)
+        {
+            foreach (var message in stateFactory())
+            {
+                var task = ProcessMessage(message, 0);
                 if (!task.IsCompleted)
                     await task;
             }

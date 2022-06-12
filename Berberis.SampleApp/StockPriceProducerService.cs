@@ -24,12 +24,12 @@ public sealed class StockPriceProducerService : BackgroundService
                     };
 
         _minTickInterval = 10;
-        _maxTickInterval = 200;
+        _maxTickInterval = 100;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(1000);
 
         var destination = "stock.prices";
 
@@ -42,7 +42,7 @@ public sealed class StockPriceProducerService : BackgroundService
 
             _xBar.Publish(destination, price, key: price.Symbol, store: true);
 
-            await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
+            //await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
         }
     }
 }
