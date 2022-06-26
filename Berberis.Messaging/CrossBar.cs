@@ -15,17 +15,35 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     private readonly FailedSubscriptionException _failedSubscriptionException = new();
 
+    private bool _tracingEnabled;
+
+    public string TracingChannel { get; } = "$message.traces";
+
+    public bool TracingEnabled
+    {
+        get => _tracingEnabled;
+        set
+        {
+            if (value && _tracingEnabled != value)
+            {
+                _ =GetOrAddChannel<MessageTrace>(TracingChannel, typeof(MessageTrace));
+                _tracingEnabled = value;
+            }
+        }
+    }
+
     public CrossBar(ILoggerFactory loggerFactory)
     {
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
-    public ValueTask Publish<TBody>(string channel, TBody body) => Publish<TBody>(channel, body, 0, null, false);
-    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish<TBody>(channel, body, 0, key, store);
-    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish<TBody>(channel, body, correlationId, null, false);
+    public ValueTask Publish<TBody>(string channel, TBody body) => Publish(channel, body, 0, null, false, null);
+    public ValueTask Publish<TBody>(string channel, TBody body, string from) => Publish(channel, body, 0, null, false, from);
+    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish(channel, body, correlationId, null, false, null);
+    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish(channel, body, 0, key, store, null);
 
-    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store)
+    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
     {
         var ticks = StatsTracker.GetTicks();
         var timestamp = DateTime.UnixEpoch;
@@ -46,14 +64,30 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         {
             channel.Statistics.IncNumOfMessages();
 
-            var msg = new Message<TBody>(channel.NextMessageId(),
-                                         timestamp.ToBinary(), correlationId,
-                                         key, ticks, body);
+            var id = channel.NextMessageId();
+            var msg = new Message<TBody>(id, timestamp.ToBinary(), correlationId, key, ticks, from, body);
+
+            if (TracingEnabled)
+            {
+                PublishSystem(TracingChannel,
+                                new MessageTrace
+                                {
+                                    MessageId = id,
+                                    MessageKey = key,
+                                    CorrelationId = correlationId,
+                                    From = from,
+                                    Channel = channelName,
+                                    Ticks = ticks
+                                });
+            }
 
             if (store)
             {
                 var messageStore = channel.GetMessageStore<TBody>();
-                messageStore.Update(msg);
+                if (messageStore != null)
+                {
+                    messageStore.Update(msg);
+                }
             }
 
             // walk through all the subscriptions on this channel...
@@ -99,14 +133,37 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    internal ValueTask PublishSystem<TBody>(string channelName, TBody body)
+    {
+        var channel = GetSystemChannel(channelName);
+        if (channel != null)
+        {
+            channel.Statistics.IncNumOfMessages();
+
+            var msg = new Message<TBody>(0, 0, 0, null, 0, null, body);
+
+            foreach (var (_, subObj) in channel.Subscriptions)
+            {
+                if (subObj is Subscription<TBody> subscription)
+                {
+                    subscription.TryWrite(msg);
+                }
+            }
+
+            channel.Statistics.DecNumOfMessages();
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler)
-        => Subscribe<TBody>(channel, handler, false, SlowConsumerStrategy.SkipUpdates, null, -1);
+        => Subscribe(channel, handler, false, SlowConsumerStrategy.SkipUpdates, null, -1);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState)
-        => Subscribe<TBody>(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
+        => Subscribe(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds)
-        => Subscribe<TBody>(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
+        => Subscribe(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
 
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
@@ -114,28 +171,38 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     {
         EnsureNotDisposed();
 
+        var sysChannel = GetSystemChannel(channelName);
+
         var subType = typeof(TBody);
 
-        var channel = GetOrAddChannel<TBody>(channelName, subType);
+        var channel = sysChannel ?? GetOrAddChannel<TBody>(channelName, subType);
 
         // if channel was already there and its type matches the type passed with this call
         if (channel.BodyType == subType)
         {
+            Func<IEnumerable<Message<TBody>>> stateFactory = null;
+
+            if (sysChannel == null && fetchState)
+            {
+                var messageStore = channel.GetMessageStore<TBody>();
+                if (messageStore != null)
+                {
+                    stateFactory = messageStore.GetState;
+                }
+            }
+
             //create, register and return subscription
             long id = Interlocked.Increment(ref _globalSubId);
 
-            Func<IEnumerable<Message<TBody>>> stateFactory = null;
-
-            if (fetchState)
-            {
-                var messageStore = channel.GetMessageStore<TBody>();
-                stateFactory = messageStore.GetState;
-            }
-
-            var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
+            var subscription = sysChannel == null ? new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
+                                                       id, channelName, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
-                                                       stateFactory);
+                                                       stateFactory, this, false)
+
+                                                   : new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
+                                                       id, channelName, 1000, -1, SlowConsumerStrategy.SkipUpdates, handler,
+                                                       () => Unsubscribe(channelName, id),
+                                                       stateFactory, this, true);
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
@@ -192,6 +259,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         EnsureNotDisposed();
 
         return _channels
+                    .Where(kvp => !kvp.Key.StartsWith("$"))
                     .Select(kvp => new ChannelInfo { Name = kvp.Key, BodyType = kvp.Value.Value.BodyType })
                     .ToList();
     }
@@ -216,6 +284,16 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
+
+    private Channel? GetSystemChannel(string channel)
+    {
+        if (channel.StartsWith("$") && _channels.TryGetValue(channel, out var channelProxy))
+        {
+            return channelProxy.Value;
+        }
+
+        return null;
+    }
 
     private Channel GetOrAddChannel<TBody>(string channel, Type bodyType)
     {

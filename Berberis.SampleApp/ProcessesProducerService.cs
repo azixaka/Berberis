@@ -38,7 +38,7 @@ public sealed class ProcessesProducerService : BackgroundService
                             CpuTimeMs = process.TotalProcessorTime.TotalMilliseconds
                         };
 
-                        _xBar.Publish(destination, pi);
+                        _ = _xBar.Publish(destination, pi, nameof(ProcessesProducerService));
                         await Task.Delay(250);
                     }
                 }

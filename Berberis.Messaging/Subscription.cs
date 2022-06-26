@@ -6,27 +6,33 @@ namespace Berberis.Messaging;
 public sealed partial class Subscription<TBody> : ISubscription
 {
     private readonly ILogger<Subscription<TBody>> _logger;
+    private readonly string _channelName;
     private readonly int _conflationIntervalMilliseconds;
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
     private Func<IEnumerable<Message<TBody>>>? _stateFactory;
+    private readonly CrossBar _crossBar;
+    private readonly bool _isSystemChannel;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
-        long id, int? bufferCapacity, int conflationIntervalMilliseconds,
+        long id, string channelName, int? bufferCapacity, int conflationIntervalMilliseconds,
         SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
-        Func<IEnumerable<Message<TBody>>>? stateFactory)
+        Func<IEnumerable<Message<TBody>>>? stateFactory,
+        CrossBar crossBar, bool isSystemChannel)
     {
         _logger = logger;
         Id = id;
+        _channelName = channelName;
         _conflationIntervalMilliseconds = conflationIntervalMilliseconds;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
         _disposeAction = disposeAction;
         _stateFactory = stateFactory;
-
+        _crossBar = crossBar;
+        _isSystemChannel = isSystemChannel;
         _channel = bufferCapacity.HasValue
             ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(bufferCapacity.Value)
             {
@@ -91,6 +97,22 @@ public sealed partial class Subscription<TBody> : ISubscription
             {
                 var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.DecNumOfMessages();
+
+                if (!_isSystemChannel && _crossBar.TracingEnabled)
+                {
+                    _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
+                                     new MessageTrace
+                                     {
+                                         OpType = OpType.SubscriptionDequeue,
+                                         MessageId = message.Id,
+                                         MessageKey = message.Key,
+                                         CorrelationId = message.CorrelationId,
+                                         From = message.From,
+                                         Channel = _channelName,
+                                         SubscriptionId = Id,
+                                         Ticks = StatsTracker.GetTicks()
+                                     });
+                }
 
                 if (localState == null || string.IsNullOrEmpty(message.Key))
                 {
@@ -193,6 +215,22 @@ public sealed partial class Subscription<TBody> : ISubscription
             await task;
 
         var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
+
+        if (!_isSystemChannel && _crossBar.TracingEnabled)
+        {
+            _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
+                             new MessageTrace
+                             {
+                                 OpType = OpType.SubscriptionProcessed,
+                                 MessageId = message.Id,
+                                 MessageKey = message.Key,
+                                 CorrelationId = message.CorrelationId,
+                                 From = message.From,
+                                 Channel = _channelName,
+                                 SubscriptionId = Id,
+                                 Ticks = StatsTracker.GetTicks()
+                             });
+        }
 
         if (_logger.IsEnabled(LogLevel.Trace))
         {

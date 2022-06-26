@@ -17,6 +17,18 @@ public sealed class MonitoringService : BackgroundService
     {
         await Task.Yield();
 
+        _xBar.TracingEnabled = true;
+
+        using var tracingSub = _xBar.Subscribe<MessageTrace>("$message.traces",
+            msg =>
+            {
+                _logger.LogInformation(msg.Body.ToString());
+
+                return ValueTask.CompletedTask;
+            });
+
+        var tracingLoop = tracingSub.RunReadLoopAsync(stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             foreach (var channel in _xBar.GetChannels())
@@ -31,5 +43,7 @@ public sealed class MonitoringService : BackgroundService
 
             await Task.Delay(1000);
         }
+
+        await tracingLoop;
     }
 }

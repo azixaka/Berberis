@@ -23,7 +23,7 @@ public sealed class MaxConsumerService : BackgroundService
             msg =>
             {
                 return ValueTask.CompletedTask;
-            });
+            }, fetchState: true);
 
         await Task.WhenAll(subscription.RunReadLoopAsync());
     }

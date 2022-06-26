@@ -9,15 +9,17 @@ public readonly struct Message<TBody>
     public long CorrelationId { get; }
     public string? Key { get; }
     internal long InceptionTicks { get; }
+    public string? From { get; }
     public TBody Body { get; }
 
-    public Message(long id, long timestamp, long correlationId, string? key, long inceptionTicks, TBody body)
+    public Message(long id, long timestamp, long correlationId, string? key, long inceptionTicks, string? from, TBody body)
     {
         Id = id;
         Timestamp = timestamp;
         CorrelationId = correlationId;
         Key = key;
         InceptionTicks = inceptionTicks;
+        From = from;
         Body = body;
     }
 }
