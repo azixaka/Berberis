@@ -26,7 +26,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         {
             if (value && _tracingEnabled != value)
             {
-                _ =GetOrAddChannel<MessageTrace>(TracingChannel, typeof(MessageTrace));
+                _ = GetOrAddChannel<MessageTrace>(TracingChannel, typeof(MessageTrace));
                 _tracingEnabled = value;
             }
         }
@@ -157,15 +157,25 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler)
-        => Subscribe(channel, handler, false, SlowConsumerStrategy.SkipUpdates, null, -1);
+        => Subscribe(channel, handler, null, false, SlowConsumerStrategy.SkipUpdates, null, -1);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName)
+        => Subscribe(channel, handler, subscriptionName, false, SlowConsumerStrategy.SkipUpdates, null, -1);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState)
-        => Subscribe(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
+        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState)
+        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds)
-        => Subscribe(channel, handler, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
+        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, int conflationIntervalMilliseconds)
+        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
 
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
+                                          string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
                                           int conflationIntervalMilliseconds)
     {
@@ -195,12 +205,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             long id = Interlocked.Increment(ref _globalSubId);
 
             var subscription = sysChannel == null ? new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, channelName, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
+                                                       id, subscriptionName, channelName, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
                                                        stateFactory, this, false)
 
                                                    : new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, channelName, 1000, -1, SlowConsumerStrategy.SkipUpdates, handler,
+                                                       id, subscriptionName, channelName, 1000, -1, SlowConsumerStrategy.SkipUpdates, handler,
                                                        () => Unsubscribe(channelName, id),
                                                        stateFactory, this, true);
 
@@ -274,6 +284,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     return new SubscriptionInfo
                     {
                         Id = kvp.Value.Id,
+                        Name = kvp.Value.Name,
                         Statistics = kvp.Value.Statistics
                     };
                 })

@@ -22,7 +22,7 @@ public sealed class DataOutputBlockService : BackgroundService
                 _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, false, nameof(DataOutputBlockService));
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, nameof(DataOutputBlockService), fetchState: true);
 
         await subscription.RunReadLoopAsync();
     }

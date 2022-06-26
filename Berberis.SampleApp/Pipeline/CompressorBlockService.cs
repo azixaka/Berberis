@@ -24,7 +24,7 @@ public sealed class CompressorBlockService : BackgroundService
                 _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(CompressorBlockService));
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, nameof(CompressorBlockService), fetchState: true);
 
         await subscription.RunReadLoopAsync();
     }

@@ -16,7 +16,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly bool _isSystemChannel;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
-        long id, string channelName, int? bufferCapacity, int conflationIntervalMilliseconds,
+        long id, string? subscriptionName, string channelName, int? bufferCapacity, int conflationIntervalMilliseconds,
         SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
@@ -25,6 +25,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     {
         _logger = logger;
         Id = id;
+        Name = subscriptionName;
         _channelName = channelName;
         _conflationIntervalMilliseconds = conflationIntervalMilliseconds;
         SlowConsumerStrategy = slowConsumerStrategy;
@@ -52,7 +53,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     }
 
     public long Id { get; }
-
+    public string? Name { get; }
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
 
     public StatsTracker Statistics { get; }
@@ -109,6 +110,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                                          CorrelationId = message.CorrelationId,
                                          From = message.From,
                                          Channel = _channelName,
+                                         SubscriptionName = Name,
                                          SubscriptionId = Id,
                                          Ticks = StatsTracker.GetTicks()
                                      });
@@ -227,6 +229,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                                  CorrelationId = message.CorrelationId,
                                  From = message.From,
                                  Channel = _channelName,
+                                 SubscriptionName = Name,
                                  SubscriptionId = Id,
                                  Ticks = StatsTracker.GetTicks()
                              });

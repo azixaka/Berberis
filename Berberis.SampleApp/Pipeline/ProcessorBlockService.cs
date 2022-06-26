@@ -24,7 +24,7 @@ public sealed class ProcessorBlockService : BackgroundService
                 _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(ProcessorBlockService));
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, nameof(ProcessorBlockService), fetchState: true);
 
         await subscription.RunReadLoopAsync();
     }

@@ -13,10 +13,14 @@ public interface ICrossBar
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, int conflationIntervalMilliseconds);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
+       string subscriptionName,
        bool fetchState,
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,

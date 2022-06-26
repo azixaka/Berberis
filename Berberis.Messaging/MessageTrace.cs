@@ -10,9 +10,10 @@ public readonly struct MessageTrace
     public string? From { get; init; }
     public long CorrelationId { get; init; }
     public string Channel { get; init; }
+    public string? SubscriptionName { get; init; }
     public long SubscriptionId { get; init; }
     public long Ticks { get; init; }
 
     public override string ToString() =>
-        $"[{OpType}] msgId:{MessageId} | msgKey:{MessageKey} | from:{From} | corId:{CorrelationId} | channel:{Channel} | subId:{SubscriptionId} | ticks:{Ticks}";
+        $"[{OpType}] msgId:{MessageId} | msgKey:{MessageKey} | from:{From} | corId:{CorrelationId} | channel:{Channel} | subNam:{SubscriptionName} | subId:{SubscriptionId} | ticks:{Ticks}";
 }

@@ -24,7 +24,7 @@ public sealed class SerialiserBlockService : BackgroundService
                 _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(SerialiserBlockService));
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, nameof(SerialiserBlockService), fetchState: true);
 
         await subscription.RunReadLoopAsync();
     }
