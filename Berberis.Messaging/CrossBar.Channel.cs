@@ -18,7 +18,7 @@ partial class CrossBar
         public ConcurrentDictionary<long, ISubscription> Subscriptions { get; }
             = new ConcurrentDictionary<long, ISubscription>();
 
-        public StatsTracker Statistics { get; } = new StatsTracker();
+        public ChannelStatsTracker Statistics { get; } = new ChannelStatsTracker();
 
         public MessageStore<TBody> GetMessageStore<TBody>()
         {

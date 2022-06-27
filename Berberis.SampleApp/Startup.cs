@@ -23,8 +23,8 @@ public sealed class Startup
 
         services.AddSingleton<ICrossBar, CrossBar>()
                 .AddHostedService<MonitoringService>()
-                //.AddHostedService<StockPriceProducerService>()
-                //.AddHostedService<StockPriceConsumerService>()
+                .AddHostedService<StockPriceProducerService>()
+                .AddHostedService<StockPriceConsumerService>()
                 //.AddHostedService<StatefulProducerService>()
                 //.AddHostedService<StatefulConsumerService>()
                 //.AddHostedService<MaxProducerService>()
@@ -36,13 +36,13 @@ public sealed class Startup
                 //.AddHostedService<ProcessesConsumerService2>()
                 ;
 
-        services.AddHostedService<DataInputBlockService>()
-                .AddHostedService<DecompressorBlockService>()
-                .AddHostedService<DeserialiserBlockService>()
-                .AddHostedService<ProcessorBlockService>()
-                .AddHostedService<SerialiserBlockService>()
-                .AddHostedService<CompressorBlockService>()
-                .AddHostedService<DataOutputBlockService>();
+        //services.AddHostedService<DataInputBlockService>()
+        //        .AddHostedService<DecompressorBlockService>()
+        //        .AddHostedService<DeserialiserBlockService>()
+        //        .AddHostedService<ProcessorBlockService>()
+        //        .AddHostedService<SerialiserBlockService>()
+        //        .AddHostedService<CompressorBlockService>()
+        //        .AddHostedService<DataOutputBlockService>();
     }
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env)

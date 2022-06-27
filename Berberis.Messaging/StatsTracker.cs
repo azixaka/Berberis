@@ -14,6 +14,9 @@ public sealed class StatsTracker
     private long _totalMessagesDec;
     private long _lastMessagesDec;
 
+    private long _totalMessagesProcessed;
+    private long _lastMessagesProcessed;
+
     private long _totalLatencyTicks;
     private long _lastLatencyTicks;
 
@@ -26,6 +29,8 @@ public sealed class StatsTracker
     internal void IncNumOfMessages() => Interlocked.Increment(ref _totalMessagesInc);
 
     internal void DecNumOfMessages() => Interlocked.Increment(ref _totalMessagesDec);
+
+    internal void IncNumOfProcessedMessages() => Interlocked.Increment(ref _totalMessagesProcessed);
 
     internal long RecordLatency(long startTicks)
     {
@@ -47,12 +52,14 @@ public sealed class StatsTracker
 
         var totalMesssagesInc = Interlocked.Read(ref _totalMessagesInc);
         var totalMesssagesDec = Interlocked.Read(ref _totalMessagesDec);
+        var totalMesssagesProcessed = Interlocked.Read(ref _totalMessagesProcessed);
 
         var totalLatencyTicks = Interlocked.Read(ref _totalLatencyTicks);
         var totalServiceTicks = Interlocked.Read(ref _totalServiceTicks);
 
         long intervalMessagesInc;
         long intervalMessagesDec;
+        long intervalMessagesProcessed;
 
         long intervalLatencyTicks;
         long intervalSvcTicks;
@@ -63,6 +70,7 @@ public sealed class StatsTracker
         {
             intervalMessagesInc = totalMesssagesInc - _lastMessagesInc;
             intervalMessagesDec = totalMesssagesDec - _lastMessagesDec;
+            intervalMessagesProcessed = totalMesssagesProcessed - _lastMessagesProcessed;
 
             intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
             intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
@@ -73,6 +81,7 @@ public sealed class StatsTracker
             {
                 _lastMessagesInc = totalMesssagesInc;
                 _lastMessagesDec = totalMesssagesDec;
+                _lastMessagesProcessed = totalMesssagesProcessed;
 
                 _lastLatencyTicks = totalLatencyTicks;
                 _lastServiceTicks = totalServiceTicks;
@@ -90,8 +99,10 @@ public sealed class StatsTracker
         return new Stats(timePassed * 1000,
             intervalMessagesInc / timePassed,
             intervalMessagesDec / timePassed,
+            intervalMessagesProcessed / timePassed,
             totalMesssagesInc,
             totalMesssagesDec,
+            totalMesssagesProcessed,
             avgLatencyTime,
             avgServiceTime);
     }

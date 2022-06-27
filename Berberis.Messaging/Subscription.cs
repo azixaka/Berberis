@@ -25,7 +25,9 @@ public sealed partial class Subscription<TBody> : ISubscription
     {
         _logger = logger;
         Id = id;
-        Name = subscriptionName;
+
+        Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
+
         _channelName = channelName;
         _conflationIntervalMilliseconds = conflationIntervalMilliseconds;
         SlowConsumerStrategy = slowConsumerStrategy;
@@ -53,7 +55,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     }
 
     public long Id { get; }
-    public string? Name { get; }
+    public string Name { get; }
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
 
     public StatsTracker Statistics { get; }
@@ -105,13 +107,11 @@ public sealed partial class Subscription<TBody> : ISubscription
                                      new MessageTrace
                                      {
                                          OpType = OpType.SubscriptionDequeue,
-                                         MessageId = message.Id,
                                          MessageKey = message.Key,
                                          CorrelationId = message.CorrelationId,
                                          From = message.From,
                                          Channel = _channelName,
                                          SubscriptionName = Name,
-                                         SubscriptionId = Id,
                                          Ticks = StatsTracker.GetTicks()
                                      });
                 }
@@ -217,6 +217,7 @@ public sealed partial class Subscription<TBody> : ISubscription
             await task;
 
         var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
+        Statistics.IncNumOfProcessedMessages();
 
         if (!_isSystemChannel && _crossBar.TracingEnabled)
         {
@@ -224,13 +225,11 @@ public sealed partial class Subscription<TBody> : ISubscription
                              new MessageTrace
                              {
                                  OpType = OpType.SubscriptionProcessed,
-                                 MessageId = message.Id,
                                  MessageKey = message.Key,
                                  CorrelationId = message.CorrelationId,
                                  From = message.From,
                                  Channel = _channelName,
                                  SubscriptionName = Name,
-                                 SubscriptionId = Id,
                                  Ticks = StatsTracker.GetTicks()
                              });
         }

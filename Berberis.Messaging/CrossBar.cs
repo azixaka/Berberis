@@ -38,11 +38,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
-    public ValueTask Publish<TBody>(string channel, TBody body) => Publish(channel, body, 0, null, false, null);
-    public ValueTask Publish<TBody>(string channel, TBody body, string from) => Publish(channel, body, 0, null, false, from);
-    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish(channel, body, correlationId, null, false, null);
-    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish(channel, body, 0, key, store, null);
-
     public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
     {
         var ticks = StatsTracker.GetTicks();
@@ -72,7 +67,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 PublishSystem(TracingChannel,
                                 new MessageTrace
                                 {
-                                    MessageId = id,
                                     MessageKey = key,
                                     CorrelationId = correlationId,
                                     From = from,
@@ -98,22 +92,22 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     // and send the body wrapped into a Message envelope with some metadata
                     if (subscription.TryWrite(msg))
                     {
-                        LogMessageSent(msg.Id, msg.CorrelationId, msg.Key ?? string.Empty, subscription.Id, channelName);
+                        LogMessageSent(msg.Id, msg.CorrelationId, msg.Key ?? string.Empty, subscription.Name, channelName);
                     }
                     else
                     {
                         switch (subscription.SlowConsumerStrategy)
                         {
                             case SlowConsumerStrategy.SkipUpdates:
-                                _logger.LogWarning("Subscription [{subId}] SKIPPED message [{msgId}] | correlation [{corId}] on channel [{channel}]",
-                                    subscription.Id, msg.Id, msg.CorrelationId, channelName);
+                                _logger.LogWarning("Subscription [{sub}] SKIPPED message [{msgId}] | correlation [{corId}] on channel [{channel}]",
+                                    subscription.Name, msg.Id, msg.CorrelationId, channelName);
                                 break;
 
                             case SlowConsumerStrategy.FailSubscription:
                                 _ = subscription.TryFail(_failedSubscriptionException);
 
-                                _logger.LogWarning("Subscription [{subId}] FAILED to receive message [{msgId}] | correlation [{corId}] on channel [{channel}]",
-                                   subscription.Id, msg.Id, msg.CorrelationId, channelName);
+                                _logger.LogWarning("Subscription [{sub}] FAILED to receive message [{msgId}] | correlation [{corId}] on channel [{channel}]",
+                                   subscription.Name, msg.Id, msg.CorrelationId, channelName);
                                 break;
                         }
                     }
@@ -155,24 +149,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         return ValueTask.CompletedTask;
     }
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler)
-        => Subscribe(channel, handler, null, false, SlowConsumerStrategy.SkipUpdates, null, -1);
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName)
-        => Subscribe(channel, handler, subscriptionName, false, SlowConsumerStrategy.SkipUpdates, null, -1);
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState)
-        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState)
-        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, -1);
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds)
-        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
-
-    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, int conflationIntervalMilliseconds)
-        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationIntervalMilliseconds);
 
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
@@ -216,7 +192,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
-                _logger.LogInformation("Subscribed [{id}] on channel [{channel}]", id, channelName);
+                _logger.LogInformation("Subscribed [{sub}] on channel [{channel}]", subscription.Name, channelName);
             }
             else { } // can't happen due to atomic id increments above
 
@@ -270,7 +246,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         return _channels
                     .Where(kvp => !kvp.Key.StartsWith("$"))
-                    .Select(kvp => new ChannelInfo { Name = kvp.Key, BodyType = kvp.Value.Value.BodyType })
+                    .Select(kvp => new ChannelInfo { Name = kvp.Key, BodyType = kvp.Value.Value.BodyType, Statistics = kvp.Value.Value.Statistics })
                     .ToList();
     }
 
@@ -283,7 +259,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 {
                     return new SubscriptionInfo
                     {
-                        Id = kvp.Value.Id,
                         Name = kvp.Value.Name,
                         Statistics = kvp.Value.Statistics
                     };
@@ -326,9 +301,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     {
         if (_channels.TryGetValue(channelName, out var channel))
         {
-            if (channel.Value.Subscriptions.TryRemove(id, out _))
+            if (channel.Value.Subscriptions.TryRemove(id, out var sub))
             {
-                _logger.LogInformation("Unsubscribed [{id}] from channel [{channel}]", id, channelName);
+                _logger.LogInformation("Unsubscribed [{sub}] from channel [{channel}]", sub.Name, channelName);
             }
             else { } // can't happen as this is called from the Subscription.Dispose which can be called just once and it gets that subscription's id passed
         }
@@ -357,6 +332,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             throw new ObjectDisposedException(nameof(CrossBar));
     }
 
-    [LoggerMessage(0, LogLevel.Trace, "Sent message [{messageId}] | correlation [{corId}] | key [{key}] to subscription [{subscriptionId}] on channel [{channel}]")]
-    partial void LogMessageSent(long messageId, long corId, string key, long subscriptionId, string channel);
+    [LoggerMessage(0, LogLevel.Trace, "Sent message [{messageId}] | correlation [{corId}] | key [{key}] to subscription [{subscriptionName}] on channel [{channel}]")]
+    partial void LogMessageSent(long messageId, long corId, string key, string subscriptionName, string channel);
 }

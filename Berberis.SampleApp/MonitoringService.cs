@@ -37,7 +37,7 @@ public sealed class MonitoringService : BackgroundService
 
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
-                    _logger.LogInformation("--- Subscription: [{subId}] [{subName}], Stats: {stats}", subscription.Id, subscription.Name, subscription.Statistics.GetStats().ToString());
+                    _logger.LogInformation("--- Subscription: [{subName}], Stats: {stats}", subscription.Name, subscription.Statistics.GetStats().ToString());
                 }
             }
 

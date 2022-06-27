@@ -6,5 +6,6 @@ partial class CrossBar
     {
         public string Name { get; init; }
         public Type BodyType { get; init; }
+        public ChannelStatsTracker Statistics { get; init; }
     }
 }
