@@ -16,15 +16,15 @@ public interface ICrossBar
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, int conflationIntervalMilliseconds);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, int conflationIntervalMilliseconds);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
        bool fetchState,
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,
-       int conflationIntervalMilliseconds);
+       TimeSpan conflationInterval);
 
     bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
     bool ResetStore<TBody>(string channelName);

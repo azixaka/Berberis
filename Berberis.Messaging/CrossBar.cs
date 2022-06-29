@@ -57,8 +57,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         // if channel was already there and its type matches the type passed with this call
         if (pubType == channel.BodyType)
         {
-            channel.Statistics.IncNumOfMessages();
-
             var id = channel.NextMessageId();
             var msg = new Message<TBody>(id, timestamp.ToBinary(), correlationId, key, ticks, from, body);
 
@@ -114,7 +112,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 }
             }
 
-            channel.Statistics.DecNumOfMessages();
+            channel.Statistics.IncNumOfMessages();
         }
         else // if channel exists but its type is different to the TBody being published here...
         {
@@ -132,8 +130,6 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var channel = GetSystemChannel(channelName);
         if (channel != null)
         {
-            channel.Statistics.IncNumOfMessages();
-
             var msg = new Message<TBody>(0, 0, 0, null, 0, null, body);
 
             foreach (var (_, subObj) in channel.Subscriptions)
@@ -144,7 +140,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 }
             }
 
-            channel.Statistics.DecNumOfMessages();
+            channel.Statistics.IncNumOfMessages();
         }
 
         return ValueTask.CompletedTask;
@@ -153,7 +149,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
-                                          int conflationIntervalMilliseconds)
+                                          TimeSpan conflationInterval)
     {
         EnsureNotDisposed();
 
@@ -181,12 +177,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             long id = Interlocked.Increment(ref _globalSubId);
 
             var subscription = sysChannel == null ? new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, subscriptionName, channelName, bufferCapacity, conflationIntervalMilliseconds, slowConsumerStrategy, handler,
+                                                       id, subscriptionName, channelName, bufferCapacity, conflationInterval, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
                                                        stateFactory, this, false)
 
                                                    : new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, subscriptionName, channelName, 1000, -1, SlowConsumerStrategy.SkipUpdates, handler,
+                                                       id, subscriptionName, channelName, 1000, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
                                                        () => Unsubscribe(channelName, id),
                                                        stateFactory, this, true);
 
@@ -260,6 +256,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     return new SubscriptionInfo
                     {
                         Name = kvp.Value.Name,
+                        SubscribedOn = kvp.Value.SubscribedOn,
+                        ConflationInterval = kvp.Value.ConflationInterval,
                         Statistics = kvp.Value.Statistics
                     };
                 })

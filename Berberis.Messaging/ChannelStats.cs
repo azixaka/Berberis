@@ -8,38 +8,23 @@ public readonly struct ChannelStats
     public readonly float IntervalMs;
 
     /// <summary>
-    /// Incoming message rate observed in this interval, in msg/s
+    /// Message rate observed in this interval, in msg/s
     /// </summary>
-    public readonly float MessagesPerSecondIn;
+    public readonly float MessagesPerSecond;
 
     /// <summary>
-    /// Processing message rate observed in this interval, in msg/s
+    /// Total number of messages observed in this interval
     /// </summary>
-    public readonly float MessagesPerSecondOut;
-
-    /// <summary>
-    /// Total number of incoming messages observed in this interval
-    /// </summary>
-    public readonly long TotalMessagesIn;
-
-    /// <summary>
-    /// Total number of processed messages observed in this interval
-    /// </summary>
-    public readonly long TotalMessagesOut;
+    public readonly long TotalMessages;
 
     public ChannelStats(float intervalMs,
-        float messagesPerSecondIn,
-        float messagesPerSecondOut,
-        long totalMessagesIn,
-        long totalMessagesOut)
+        float messagesPerSecond,
+        long totalMessages)
     {
         IntervalMs = intervalMs;
-        MessagesPerSecondIn = messagesPerSecondIn;
-        MessagesPerSecondOut = messagesPerSecondOut;
-        TotalMessagesIn = totalMessagesIn;
-        TotalMessagesOut = totalMessagesOut;
+        MessagesPerSecond = messagesPerSecond;
+        TotalMessages = totalMessages;
     }
 
-    public override string ToString() =>
-        $"Int: {IntervalMs:N0} ms; In: {MessagesPerSecondIn:N1} msg/s; Out: {MessagesPerSecondOut:N1} msg/s; Total In: {TotalMessagesIn:N0}; Total Out: {TotalMessagesOut:N0}";
+    public override string ToString() => $"Int: {IntervalMs:N0} ms; Rate: {MessagesPerSecond:N1} msg/s; Total: {TotalMessages:N0}";
 }

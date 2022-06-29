@@ -7,7 +7,6 @@ public sealed partial class Subscription<TBody> : ISubscription
 {
     private readonly ILogger<Subscription<TBody>> _logger;
     private readonly string _channelName;
-    private readonly int _conflationIntervalMilliseconds;
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
@@ -16,7 +15,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly bool _isSystemChannel;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
-        long id, string? subscriptionName, string channelName, int? bufferCapacity, int conflationIntervalMilliseconds,
+        long id, string? subscriptionName, string channelName, int? bufferCapacity, TimeSpan conflationIntervalInterval,
         SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
@@ -29,13 +28,16 @@ public sealed partial class Subscription<TBody> : ISubscription
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
 
         _channelName = channelName;
-        _conflationIntervalMilliseconds = conflationIntervalMilliseconds;
+        ConflationInterval = conflationIntervalInterval;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
         _disposeAction = disposeAction;
         _stateFactory = stateFactory;
         _crossBar = crossBar;
         _isSystemChannel = isSystemChannel;
+
+        SubscribedOn = DateTime.UtcNow;
+
         _channel = bufferCapacity.HasValue
             ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(bufferCapacity.Value)
             {
@@ -57,8 +59,9 @@ public sealed partial class Subscription<TBody> : ISubscription
     public long Id { get; }
     public string Name { get; }
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
-
     public StatsTracker Statistics { get; }
+    public DateTime SubscribedOn { get; init; }
+    public TimeSpan ConflationInterval { get; init; }
 
     internal bool TryWrite(Message<TBody> message)
     {
@@ -86,7 +89,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         SemaphoreSlim? semaphore = null;
         Task? flusherTask = null;
 
-        if (_conflationIntervalMilliseconds != Timeout.Infinite)
+        if (ConflationInterval > TimeSpan.Zero)
         {
             localState = new Dictionary<string, Message<TBody>>();
             localStateBacking = new Dictionary<string, Message<TBody>>();
@@ -151,9 +154,18 @@ public sealed partial class Subscription<TBody> : ISubscription
 
         async Task FlusherLoop()
         {
+            float flushTookMs = 0;
+
             while (!token.IsCancellationRequested)
             {
-                await Task.Delay(_conflationIntervalMilliseconds, token);
+                var delay = ConflationInterval.Subtract(TimeSpan.FromMilliseconds(flushTookMs));
+
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, token);
+                }
+
+                var startTicks = StatsTracker.GetTicks();
 
                 if (!semaphore!.Wait(0))
                     await semaphore!.WaitAsync(token);
@@ -189,6 +201,8 @@ public sealed partial class Subscription<TBody> : ISubscription
                         state.Clear();
                     }
                 }
+
+                flushTookMs = StatsTracker.TicksToTimeMs(StatsTracker.GetTicks() - startTicks);
             }
         }
     }

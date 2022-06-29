@@ -25,7 +25,7 @@ public sealed class StockPriceConsumerService : BackgroundService
             {
                 _logger.LogInformation("Subscription [{subId}] got Message {msgId}. [{symbol}={price:N4}]", subId, msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, fetchState: true, conflationIntervalMilliseconds: 1000);
+            }, fetchState: true, TimeSpan.FromSeconds(1));
 
         subId = subscription.Id;
         await subscription.RunReadLoopAsync();
