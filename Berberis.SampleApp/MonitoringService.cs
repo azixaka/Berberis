@@ -33,7 +33,7 @@ public sealed class MonitoringService : BackgroundService
         {
             foreach (var channel in _xBar.GetChannels())
             {
-                _logger.LogInformation("Channel:{channel}, Type:{type}", channel.Name, channel.BodyType.Name);
+                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime());
 
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {

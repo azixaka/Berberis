@@ -40,7 +40,7 @@ public sealed class StockPriceProducerService : BackgroundService
             var index = random.Next(0, _symbols.Length);
             var price = new StockPrice(_symbols[index], random.NextDouble());
 
-            _xBar.Publish(destination, price, key: price.Symbol, store: true);
+            _xBar.Publish(destination, price, 0, key: price.Symbol, store: true, from: nameof(StockPriceProducerService));
 
             //await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
         }

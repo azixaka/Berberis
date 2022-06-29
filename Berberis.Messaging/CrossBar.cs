@@ -41,7 +41,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
     {
         var ticks = StatsTracker.GetTicks();
-        var timestamp = DateTime.UnixEpoch;
+        var timestamp = DateTime.UtcNow;
 
         EnsureNotDisposed();
 
@@ -81,6 +81,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     messageStore.Update(msg);
                 }
             }
+
+            channel.LastPublishedAt = timestamp;
+            channel.LastPublishedBy = from;
 
             // walk through all the subscriptions on this channel...
             foreach (var (_, subObj) in channel.Subscriptions)
@@ -242,8 +245,14 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         return _channels
                     .Where(kvp => !kvp.Key.StartsWith("$"))
-                    .Select(kvp => new ChannelInfo { Name = kvp.Key, BodyType = kvp.Value.Value.BodyType, Statistics = kvp.Value.Value.Statistics })
-                    .ToList();
+                    .Select(kvp => new ChannelInfo
+                    {
+                        Name = kvp.Key,
+                        BodyType = kvp.Value.Value.BodyType,
+                        Statistics = kvp.Value.Value.Statistics,
+                        LastPublishedAt = kvp.Value.Value.LastPublishedAt,
+                        LastPublishedBy = kvp.Value.Value.LastPublishedBy
+                    }).ToList();
     }
 
     public IReadOnlyCollection<SubscriptionInfo> GetChannelSubscriptions(string channelName)

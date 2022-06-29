@@ -20,6 +20,10 @@ partial class CrossBar
 
         public ChannelStatsTracker Statistics { get; } = new ChannelStatsTracker();
 
+        public DateTime LastPublishedAt { get; internal set; }
+
+        public string? LastPublishedBy { get; internal set; }
+
         public MessageStore<TBody> GetMessageStore<TBody>()
         {
             if (Volatile.Read(ref _messageStoreInitialised))
