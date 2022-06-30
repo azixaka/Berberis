@@ -56,6 +56,9 @@ namespace Berberis.Messaging
                 writer.WriteEndObject();
             }
 
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+
             static void WriteNumber(Utf8JsonWriter writer, string name, float value)
             {
                 if (double.IsNaN(value) || double.IsInfinity(value))
