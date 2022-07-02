@@ -3,6 +3,11 @@
 public readonly struct ChannelStats
 {
     /// <summary>
+    /// Total inter-publish time in milliseconds
+    /// </summary>
+    private readonly float _totalInterPublishTimeMs;
+
+    /// <summary>
     /// Interval window in milliseconds for which these calculation were made
     /// </summary>
     public readonly float IntervalMs;
@@ -10,12 +15,7 @@ public readonly struct ChannelStats
     /// <summary>
     /// Message rate observed in this interval, in msg/s
     /// </summary>
-    public readonly float MessagesPerSecond;
-
-    /// <summary>
-    /// Total inter-publish time in milliseconds
-    /// </summary>
-    public readonly float TotalInterPublishTimeMs;
+    public readonly float PublishRateInterval;
 
     /// <summary>
     /// Total number of messages observed in this interval
@@ -25,7 +25,7 @@ public readonly struct ChannelStats
     /// <summary>
     /// All time Publish rate, in msg/s
     /// </summary>
-    public float PublishRate { get => (TotalMessages / TotalInterPublishTimeMs) * 1000; }
+    public float PublishRateLongTerm { get => (TotalMessages / _totalInterPublishTimeMs) * 1000; }
 
     public ChannelStats(float intervalMs,
         float messagesPerSecond,
@@ -33,10 +33,10 @@ public readonly struct ChannelStats
         long totalMessages)
     {
         IntervalMs = intervalMs;
-        MessagesPerSecond = messagesPerSecond;
-        TotalInterPublishTimeMs = totalInterPublishTimeMs;
+        PublishRateInterval = messagesPerSecond;
+        _totalInterPublishTimeMs = totalInterPublishTimeMs;
         TotalMessages = totalMessages;
     }
 
-    public override string ToString() => $"Int: {IntervalMs:N0} ms; Int Rate: {MessagesPerSecond:N1} msg/s; Avg Rate: {PublishRate:N1} msg/s; Total: {TotalMessages:N0}";
+    public override string ToString() => $"Int: {IntervalMs:N0} ms; Int Rate: {PublishRateInterval:N1} msg/s; LT Rate: {PublishRateLongTerm:N1} msg/s; Total: {TotalMessages:N0}";
 }

@@ -16,15 +16,15 @@ namespace Berberis.Messaging
             {
                 writer.WriteStartObject();
                 writer.WriteString("Channel", channel.Name);
-                writer.WriteString("Type", channel.BodyType.Name);
-                writer.WriteString("LastBy", channel.LastPublishedBy);
-                writer.WriteString("LastAt", channel.LastPublishedAt.ToString(DateTimeFormat));
+                writer.WriteString("MessageBodyType", channel.BodyType.Name);
+                writer.WriteString("LastPublishedBy", channel.LastPublishedBy);
+                writer.WriteString("LastPublishedAt", channel.LastPublishedAt.ToString(DateTimeFormat));
 
                 var channelStats = channel.Statistics.GetStats();
-                WriteNumber(writer, "IMs", channelStats.IntervalMs);
-                WriteNumber(writer, "Mps", channelStats.MessagesPerSecond);
-                WriteNumber(writer, "Msgs", channelStats.TotalMessages);
-                WriteNumber(writer, "AvgMsgs", channelStats.PublishRate);
+                WriteNumber(writer, "IntervalMs", channelStats.IntervalMs);
+                WriteNumber(writer, "PublishRateInterval", channelStats.PublishRateInterval);
+                WriteNumber(writer, "PublishRateLongTerm", channelStats.PublishRateLongTerm);
+                WriteNumber(writer, "TotalMessages", channelStats.TotalMessages);
 
                 writer.WritePropertyName("Subscriptions");
                 writer.WriteStartArray();
@@ -38,26 +38,24 @@ namespace Berberis.Messaging
 
                     var stats = subscription.Statistics.GetStats();
 
-                    WriteNumber(writer, "ConflationRatio", stats.ConflationRate);
-                    WriteNumber(writer, "LatencyToResponseRatio", stats.LatencyToResponseTimeRatio);
+                    WriteNumber(writer, "ConflationRateLongTerm", stats.ConflationRateLongTerm);
+                    WriteNumber(writer, "LatencyToResponseTimeRatioLongTerm", stats.LatencyToResponseTimeRatioLongTerm);
 
-                    WriteNumber(writer, "IMs", stats.IntervalMs);
-                    WriteNumber(writer, "MpsIn", stats.MessagesPerSecondEnqueue);
-                    WriteNumber(writer, "MpsOut", stats.MessagesPerSecondDequeued);
-                    WriteNumber(writer, "DequeueRate", stats.DequeueRate);
-                    WriteNumber(writer, "EstimatedAvgActiveMessagesDequeue", stats.EstimatedAvgActiveMessagesDequeue);
-
-                    WriteNumber(writer, "MpsProcess", stats.MessagesPerSecondProcessed);
-                    WriteNumber(writer, "ProcessRate", stats.ProcessRate);
-                    WriteNumber(writer, "EstimatedAvgActiveMessagesProcess", stats.EstimatedAvgActiveMessagesProcess);
-                    WriteNumber(writer, "MsgsIn", stats.TotalEnqueuedMessages);
-                    WriteNumber(writer, "MsgsOut", stats.TotalDequeuedMessages);
-                    WriteNumber(writer, "MsgsProcess", stats.TotalProcessedMessages);
-                    WriteNumber(writer, "Queue", stats.QueueLength);
-                    WriteNumber(writer, "AvgLat", stats.AvgLatencyTimeMs);
-                    WriteNumber(writer, "AvgAllLat", stats.AvgAllLatencyTimeMs);
-                    WriteNumber(writer, "AvgSvc", stats.AvgServiceTimeMs);
-                    WriteNumber(writer, "AvgAllSvc", stats.AvgAllServiceTimeMs);
+                    WriteNumber(writer, "IntervalMs", stats.IntervalMs);
+                    WriteNumber(writer, "EnqueueRateInterval", stats.EnqueueRateInterval);
+                    WriteNumber(writer, "DequeueRateInterval", stats.DequeueRateInterval);
+                    WriteNumber(writer, "DequeueRateLongTerm", stats.DequeueRateLongTerm);
+                    WriteNumber(writer, "ProcessRateInterval", stats.ProcessRateInterval);
+                    WriteNumber(writer, "ProcessRateLongTerm", stats.ProcessRateLongTerm);
+                    WriteNumber(writer, "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
+                    WriteNumber(writer, "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
+                    WriteNumber(writer, "TotalDequeuedMessages", stats.TotalDequeuedMessages);
+                    WriteNumber(writer, "TotalProcessedMessages", stats.TotalProcessedMessages);
+                    WriteNumber(writer, "QueueLength", stats.QueueLength);
+                    WriteNumber(writer, "AvgLatencyTimeMsInterval", stats.AvgLatencyTimeMsInterval);
+                    WriteNumber(writer, "AvgLatencyTimeMsLongTerm", stats.AvgLatencyTimeMsLongTerm);
+                    WriteNumber(writer, "AvgServiceTimeMsInterval", stats.AvgServiceTimeMsInterval);
+                    WriteNumber(writer, "AvgLatencyTimeMsLongTerm", stats.AvgLatencyTimeMsLongTerm);
 
                     writer.WriteEndObject();
                 }
