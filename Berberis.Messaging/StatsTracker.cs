@@ -94,7 +94,7 @@ public sealed class StatsTracker
         var intervalSvcTimeMs = intervalSvcTicks * MsRatio;
 
         var avgLatencyTime = intervalMessagesDec == 0 ? 0 : intervalLatencyTimeMs / intervalMessagesDec;
-        var avgServiceTime = intervalMessagesDec == 0 ? 0 : intervalSvcTimeMs / intervalMessagesDec;
+        var avgServiceTime = intervalMessagesProcessed == 0 ? 0 : intervalSvcTimeMs / intervalMessagesProcessed;
 
         return new Stats(timePassed * 1000,
             intervalMessagesInc / timePassed,
