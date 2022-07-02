@@ -69,7 +69,7 @@ public sealed partial class Subscription<TBody> : ISubscription
 
         if (success)
         {
-            Statistics.IncNumOfMessages();
+            Statistics.IncNumOfEnqueuedMessages();
         }
 
         return success;
@@ -101,8 +101,8 @@ public sealed partial class Subscription<TBody> : ISubscription
         {
             while (_channel.Reader.TryRead(out var message))
             {
-                var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
-                Statistics.DecNumOfMessages();
+                var latencyTicks = Statistics.RecordLatencyAndInterDequeueTime(message.InceptionTicks);
+                Statistics.IncNumOfDequeuedMessages();
 
                 if (!_isSystemChannel && _crossBar.TracingEnabled)
                 {
@@ -230,7 +230,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         if (!task.IsCompleted)
             await task;
 
-        var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
+        var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
         Statistics.IncNumOfProcessedMessages();
 
         if (!_isSystemChannel && _crossBar.TracingEnabled)

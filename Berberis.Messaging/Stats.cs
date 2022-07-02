@@ -8,14 +8,14 @@ public readonly struct Stats
     public readonly float IntervalMs;
 
     /// <summary>
-    /// Incoming message rate observed in this interval, in msg/s
+    /// Enqueue message rate observed in this interval, in msg/s
     /// </summary>
-    public readonly float MessagesPerSecondIn;
+    public readonly float MessagesPerSecondEnqueue;
 
     /// <summary>
-    /// Outgoing message rate observed in this interval, in msg/s
+    /// Dequeue message rate observed in this interval, in msg/s
     /// </summary>
-    public readonly float MessagesPerSecondOut;
+    public readonly float MessagesPerSecondDequeued;
 
     /// <summary>
     /// Processing message rate observed in this interval, in msg/s
@@ -23,51 +23,128 @@ public readonly struct Stats
     public readonly float MessagesPerSecondProcessed;
 
     /// <summary>
-    /// Total number of incoming messages observed in this interval
+    /// Total number of enqueued messages observed
     /// </summary>
-    public readonly long TotalMessagesIn;
+    public readonly long TotalEnqueuedMessages;
 
     /// <summary>
-    /// Total number of outgoing messages observed in this interval
+    /// Total number of dequeued messages
     /// </summary>
-    public readonly long TotalMessagesOut;
+    public readonly long TotalDequeuedMessages;
 
     /// <summary>
-    /// Total number of processed messages observed in this interval
+    /// Total message inter-dequeue time in milliseconds
     /// </summary>
-    public readonly long TotalMessagesProcessed;
+    public readonly float TotalInterDequeueTimeMs;
 
     /// <summary>
-    /// Average latency time in milliseconds, i.e how long it took on average to wait to be processed
+    /// Total number of processed messages
     /// </summary>
-    public readonly float AvgLatencyTime;
+    public readonly long TotalProcessedMessages;
 
     /// <summary>
-    /// Average service time in milliseconds, i.e how long it took on average to process an operation
+    /// Total message inter-process time in milliseconds
     /// </summary>
-    public readonly float AvgServiceTime;
+    public readonly float TotalInterProcessTimeMs;
+
+    /// <summary>
+    /// Total latency time in milliseconds
+    /// </summary>
+    public readonly float TotalLatencyTimeMs;
+
+    /// <summary>
+    /// Average latency time in this interval, in milliseconds, i.e how long it took on average to wait to be processed
+    /// </summary>
+    public readonly float AvgLatencyTimeMs;
+
+    /// <summary>
+    /// Total latency time in milliseconds
+    /// </summary>
+    public readonly float TotalServiceTimeMs;
+
+    /// <summary>
+    /// Average service time in this interval, in milliseconds, i.e how long it took on average to process an operation
+    /// </summary>
+    public readonly float AvgServiceTimeMs;
+
+    /// <summary>
+    /// Processed to Dequeued messages ratio
+    /// </summary>
+    public float ConflationRate { get => TotalProcessedMessages / (float)TotalDequeuedMessages; }
+
+    /// <summary>
+    /// Current queue length
+    /// </summary>
+    public long QueueLength
+    {
+        get
+        {
+            var len = TotalDequeuedMessages - TotalEnqueuedMessages;
+            return len < 0 ? 0 : len;
+        }
+    }
+
+    /// <summary>
+    /// Latency to Response time (latency + service time) ratio
+    /// </summary>
+    public float LatencyToResponseTimeRatio { get => AvgAllLatencyTimeMs / (AvgAllLatencyTimeMs + AvgAllServiceTimeMs); }
+
+    /// <summary>
+    /// All time Dequeue rate, in msg/s
+    /// </summary>
+    public float DequeueRate { get => (TotalDequeuedMessages / TotalInterDequeueTimeMs) * 1000; }
+
+    /// <summary>
+    /// All time average latency time in ms
+    /// </summary>
+    public float AvgAllLatencyTimeMs { get => TotalLatencyTimeMs / TotalDequeuedMessages; }
+
+    /// <summary>
+    /// Estimated average active number of messages in the system as per Little's Law, at the dequeuing point
+    /// </summary>
+    public float EstimatedAvgActiveMessagesDequeue { get => DequeueRate * (AvgAllLatencyTimeMs + AvgAllServiceTimeMs) / 1000.0f; }
+
+    /// <summary>
+    /// All time Process rate, in msg/s
+    /// </summary>
+    public float ProcessRate { get => (TotalProcessedMessages / TotalInterProcessTimeMs) * 1000; }
+
+    /// <summary>
+    /// All time average service time in ms
+    /// </summary>
+    public float AvgAllServiceTimeMs { get => TotalServiceTimeMs / TotalProcessedMessages; }
+
+    /// <summary>
+    /// Estimated average active number of messages in the system as per Little's Law, at the processing point
+    /// </summary>
+    public float EstimatedAvgActiveMessagesProcess { get => ProcessRate * (AvgAllLatencyTimeMs + AvgAllServiceTimeMs) / 1000.0f; }
 
     public Stats(float intervalMs,
         float messagesPerSecondIn,
-        float messagesPerSecondOut,
+        float messagesPerSecondDequeued,
         float messagesPerSecondProcessed,
         long totalMessagesIn,
-        long totalMessagesOut,
+        long totalDequeuedMessages,
+        float totalInterDequeueTimeMs,
         long totalMessagesProcessed,
-        float avgLatencyTime,
-        float avgServiceTime)
+        float totalInterProcessTimeMs,
+        float totalLatencyTimeMs,
+        float avgLatencyTimeMs,
+        float totalServiceTimeMs,
+        float avgServiceTimeMs)
     {
         IntervalMs = intervalMs;
-        MessagesPerSecondIn = messagesPerSecondIn;
-        MessagesPerSecondOut = messagesPerSecondOut;
+        MessagesPerSecondEnqueue = messagesPerSecondIn;
+        MessagesPerSecondDequeued = messagesPerSecondDequeued;
         MessagesPerSecondProcessed = messagesPerSecondProcessed;
-        TotalMessagesIn = totalMessagesIn;
-        TotalMessagesOut = totalMessagesOut;
-        TotalMessagesProcessed = totalMessagesProcessed;
-        AvgLatencyTime = avgLatencyTime;
-        AvgServiceTime = avgServiceTime;
+        TotalEnqueuedMessages = totalMessagesIn;
+        TotalDequeuedMessages = totalDequeuedMessages;
+        TotalInterDequeueTimeMs = totalInterDequeueTimeMs;
+        TotalProcessedMessages = totalMessagesProcessed;
+        TotalInterProcessTimeMs = totalInterProcessTimeMs;
+        TotalLatencyTimeMs = totalLatencyTimeMs;
+        AvgLatencyTimeMs = avgLatencyTimeMs;
+        TotalServiceTimeMs = totalServiceTimeMs;
+        AvgServiceTimeMs = avgServiceTimeMs;
     }
-
-    public override string ToString() =>
-        $"Int: {IntervalMs:N0} ms; In: {MessagesPerSecondIn:N1} msg/s; Out: {MessagesPerSecondOut:N1} msg/s; Processed: {MessagesPerSecondProcessed:N1} msg/s; Total In: {TotalMessagesIn:N0}; Total Out: {TotalMessagesOut:N0}; Total Processed: {TotalMessagesProcessed:N0}; Avg Latency: {AvgLatencyTime:N4} ms; Avg Svc: {AvgServiceTime:N4} ms";
 }

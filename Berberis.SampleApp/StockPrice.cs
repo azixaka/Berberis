@@ -8,8 +8,8 @@ public struct StockPrice
         Price = price;
     }
 
-    public string Symbol;
-    public double Price;
+    public string Symbol { get; init; }
+    public double Price { get; init; }
 
     public override string ToString() => $"{Symbol.PadLeft(4)}={Price:N4}";
 }

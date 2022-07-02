@@ -42,7 +42,7 @@ public sealed class StockPriceProducerService : BackgroundService
 
             _xBar.Publish(destination, price, 0, key: price.Symbol, store: true, from: nameof(StockPriceProducerService));
 
-            //await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
+            await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
         }
     }
 }

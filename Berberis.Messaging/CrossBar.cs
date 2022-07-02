@@ -115,7 +115,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 }
             }
 
-            channel.Statistics.IncNumOfMessages();
+            channel.Statistics.IncNumOfPublishedMessages();
         }
         else // if channel exists but its type is different to the TBody being published here...
         {
@@ -143,7 +143,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 }
             }
 
-            channel.Statistics.IncNumOfMessages();
+            channel.Statistics.IncNumOfPublishedMessages();
         }
 
         return ValueTask.CompletedTask;

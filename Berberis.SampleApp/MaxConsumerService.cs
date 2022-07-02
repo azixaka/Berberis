@@ -22,8 +22,12 @@ public sealed class MaxConsumerService : BackgroundService
         using var subscription = _xBar.Subscribe<long>(destination,
             msg =>
             {
+                //await Task.Delay(1);
+
+                Thread.SpinWait(30000);
+
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, fetchState: true, TimeSpan.FromSeconds(1));
 
         await Task.WhenAll(subscription.RunReadLoopAsync());
     }

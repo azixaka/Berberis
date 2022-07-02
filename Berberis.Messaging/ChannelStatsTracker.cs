@@ -5,15 +5,31 @@ namespace Berberis.Messaging;
 public sealed class ChannelStatsTracker
 {
     internal static long GetTicks() => Stopwatch.GetTimestamp();
-    internal static float MsRatio => (float) 1000 / Stopwatch.Frequency;
+    internal static float MsRatio => (float)1000 / Stopwatch.Frequency;
 
     private long _totalMessages;
     private long _lastMessages;
 
+    private long _totalInterPublishTime;
+    private long _lastInterPublishTime;
+
     private long _lastTicks;
     private object _syncObj = new();
 
-    internal void IncNumOfMessages() => Interlocked.Increment(ref _totalMessages);
+    internal void IncNumOfPublishedMessages()
+    {
+        var nowTicks = GetTicks();
+
+        //todo: make thread-safe
+        if (_lastInterPublishTime > 0)
+        {
+            _totalInterPublishTime += (nowTicks - _lastInterPublishTime);
+        }
+
+        _lastInterPublishTime = nowTicks;
+
+        Interlocked.Increment(ref _totalMessages);
+    }
 
     public ChannelStats GetStats(bool reset = true)
     {
@@ -38,8 +54,11 @@ public sealed class ChannelStatsTracker
             }
         }
 
+        var totalInterProcessTimeMs = Interlocked.Read(ref _totalInterPublishTime) * MsRatio;
+
         return new ChannelStats(timePassed * 1000,
             intervalMessagesInc / timePassed,
+            totalInterProcessTimeMs,
             totalMesssagesInc);
     }
 }
