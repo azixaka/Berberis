@@ -26,6 +26,6 @@ public sealed class SerialiserBlockService : BackgroundService
                 return ValueTask.CompletedTask;
             }, nameof(SerialiserBlockService), fetchState: true);
 
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

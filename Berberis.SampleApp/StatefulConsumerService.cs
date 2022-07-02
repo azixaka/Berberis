@@ -17,15 +17,13 @@ public sealed class StatefulConsumerService : BackgroundService
     {
         await Task.Delay(5000);
 
-        long subId = 0;
         using var subscription = _xBar.Subscribe<string>("stateful.time",
             msg =>
             {
-                _logger.LogInformation("Subscription [{subId}] got Message [Id={msgId}, Time={time}]", subId, msg.Id, msg.Body);
+                _logger.LogInformation("Got Message [Id={msgId}, Time={time}]", msg.Id, msg.Body);
                 return ValueTask.CompletedTask;
             }, fetchState: true);
 
-        subId = subscription.Id;
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

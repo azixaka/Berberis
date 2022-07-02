@@ -20,13 +20,13 @@ public sealed class ChannelStatsTracker
     {
         var nowTicks = GetTicks();
 
-        //todo: make thread-safe
+        //todo: make atomic and benchmark against lock which might actually be cheaper than 3 interlocked ops!
         if (_lastInterPublishTime > 0)
         {
-            _totalInterPublishTime += (nowTicks - _lastInterPublishTime);
+            Interlocked.Add(ref _totalInterPublishTime, (nowTicks - _lastInterPublishTime));
         }
 
-        _lastInterPublishTime = nowTicks;
+        Interlocked.Exchange(ref _lastInterPublishTime, nowTicks);
 
         Interlocked.Increment(ref _totalMessages);
     }

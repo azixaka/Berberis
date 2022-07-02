@@ -18,9 +18,6 @@ public sealed class StockPriceRecorderService : BackgroundService
     {
         var destination = "stock.prices";
 
-        using var recording = _xBar.Record<StockPrice>(destination, "stock.prices", true, TimeSpan.FromSeconds(1));
-
-        await recording.Record(stoppingToken);
-
+        using var recording = _xBar.Record<StockPrice>(destination, "stock.prices", true, TimeSpan.FromSeconds(1), stoppingToken);
     }
 }

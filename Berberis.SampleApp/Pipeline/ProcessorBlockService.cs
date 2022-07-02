@@ -26,6 +26,6 @@ public sealed class ProcessorBlockService : BackgroundService
                 return ValueTask.CompletedTask;
             }, nameof(ProcessorBlockService), fetchState: true);
 
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

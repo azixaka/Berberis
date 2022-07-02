@@ -23,7 +23,6 @@ public sealed partial class Subscription<TBody> : ISubscription
         CrossBar crossBar, bool isSystemChannel)
     {
         _logger = logger;
-        Id = id;
 
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
 
@@ -56,12 +55,12 @@ public sealed partial class Subscription<TBody> : ISubscription
         Statistics = new StatsTracker();
     }
 
-    public long Id { get; }
     public string Name { get; }
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
     public StatsTracker Statistics { get; }
     public DateTime SubscribedOn { get; init; }
     public TimeSpan ConflationInterval { get; init; }
+    public Task MessageLoop { get; private set; }
 
     internal bool TryWrite(Message<TBody> message)
     {
@@ -77,7 +76,10 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     internal bool TryFail(Exception ex) => _channel.Writer.TryComplete(ex);
 
-    public async Task RunReadLoopAsync(CancellationToken token = default)
+    internal void StartSubscription(CancellationToken token) =>
+        MessageLoop = RunReadLoopAsync(token);
+
+    private async Task RunReadLoopAsync(CancellationToken token)
     {
         //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
 

@@ -26,6 +26,6 @@ public sealed class DecompressorBlockService : BackgroundService
                 return ValueTask.CompletedTask;
             }, nameof(DecompressorBlockService), fetchState: true);
 
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

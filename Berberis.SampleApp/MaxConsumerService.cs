@@ -27,8 +27,8 @@ public sealed class MaxConsumerService : BackgroundService
                 Thread.SpinWait(100000);
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, fetchState: true, TimeSpan.FromSeconds(1), stoppingToken);
 
-        await Task.WhenAll(subscription.RunReadLoopAsync());
+        await subscription.MessageLoop;
     }
 }

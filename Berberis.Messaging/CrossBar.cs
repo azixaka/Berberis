@@ -152,7 +152,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
-                                          TimeSpan conflationInterval)
+                                          TimeSpan conflationInterval,
+                                          CancellationToken token = default)
     {
         EnsureNotDisposed();
 
@@ -195,8 +196,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             }
             else { } // can't happen due to atomic id increments above
 
-            // the loop can get cancelled by disopsing subscription, see Subscription's ReadLoop/Dispose pair
-            // so Subscription can get returned running if needed by : _ = subscription.RunReadLoopAsync();
+            subscription.StartSubscription(token);
 
             return subscription;
         }

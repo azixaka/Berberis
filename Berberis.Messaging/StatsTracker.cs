@@ -44,10 +44,9 @@ public sealed class StatsTracker
         var latency = nowTicks - startTicks;
         Interlocked.Add(ref _totalLatencyTicks, latency);
 
-        //todo: make thread-safe
         if (_lastInterDequeueTime > 0)
         {
-            _totalInterDequeueTime += (nowTicks - _lastInterDequeueTime);
+            Interlocked.Add(ref _totalInterDequeueTime, (nowTicks - _lastInterDequeueTime));
         }
 
         _lastInterDequeueTime = nowTicks;
@@ -61,10 +60,9 @@ public sealed class StatsTracker
         var svcTime = nowTicks - startTicks;
         Interlocked.Add(ref _totalServiceTicks, svcTime);
 
-        //todo: make thread-safe
         if (_lastInterProcessTime > 0)
         {
-            _totalInterProcessTime += (nowTicks - _lastInterProcessTime);
+            Interlocked.Add(ref _totalInterProcessTime, (nowTicks - _lastInterProcessTime));
         }
 
         _lastInterProcessTime = nowTicks;

@@ -26,6 +26,6 @@ public sealed class CompressorBlockService : BackgroundService
                 return ValueTask.CompletedTask;
             }, nameof(CompressorBlockService), fetchState: true);
 
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

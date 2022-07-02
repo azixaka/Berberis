@@ -19,15 +19,13 @@ public sealed class TimeConsumerService : BackgroundService
 
         var destination = "current.time";
 
-        long subId = 0;
         using var subscription = _xBar.Subscribe<string>(destination,
             msg =>
             {
-                _logger.LogInformation("Subscription [{subId}] got Message [Id={msgId}, Time={time}]", subId, msg.Id, msg.Body);
+                _logger.LogInformation("Got Message [Id={msgId}, Time={time}]", msg.Id, msg.Body);
                 return ValueTask.CompletedTask;
             });
 
-        subId = subscription.Id;
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

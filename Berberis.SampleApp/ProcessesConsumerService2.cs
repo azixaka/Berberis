@@ -19,16 +19,13 @@ public sealed class ProcessesConsumerService2 : BackgroundService
 
         var destination = "processes.info";
 
-        long subId = 0;
         using var subscription = _xBar.Subscribe<ProcessInfo>(destination,
             msg =>
             {
-                _logger.LogDebug("Subscription [{subId}] got Message [Id={msgId}, Ms={cpuTime}]", subId, msg.Id, msg.Body.CpuTimeMs);
+                _logger.LogDebug("Got Message [Id={msgId}, Ms={cpuTime}]", msg.Id, msg.Body.CpuTimeMs);
                 return ValueTask.CompletedTask;
             });
 
-        subId = subscription.Id;
-
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

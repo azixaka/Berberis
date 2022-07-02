@@ -19,15 +19,13 @@ public sealed class StockPriceConsumerService : BackgroundService
 
         var destination = "stock.prices";
 
-        long subId = 0;
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
             msg =>
             {
-                _logger.LogInformation("Subscription [{subId}] got Message {msgId}. [{symbol}={price:N4}]", subId, msg.Id, msg.Body.Symbol, msg.Body.Price);
+                _logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
             }, fetchState: true, TimeSpan.FromSeconds(1));
 
-        subId = subscription.Id;
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }

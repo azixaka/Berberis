@@ -12,19 +12,20 @@ public interface ICrossBar
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId);
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from);
 
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval, CancellationToken token = default);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
        bool fetchState,
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,
-       TimeSpan conflationInterval);
+       TimeSpan conflationInterval,
+       CancellationToken token = default);
 
     bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
     bool ResetStore<TBody>(string channelName);

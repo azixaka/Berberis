@@ -24,6 +24,6 @@ public sealed class DataOutputBlockService : BackgroundService
                 return ValueTask.CompletedTask;
             }, nameof(DataOutputBlockService), fetchState: true);
 
-        await subscription.RunReadLoopAsync();
+        await subscription.MessageLoop;
     }
 }
