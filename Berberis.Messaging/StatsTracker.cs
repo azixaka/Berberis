@@ -99,7 +99,7 @@ public sealed class StatsTracker
             intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
             intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
 
-            timePassed = (ticks - _lastTicks) / Stopwatch.Frequency;
+            timePassed = (ticks - _lastTicks) / (float) Stopwatch.Frequency;
 
             if (reset)
             {

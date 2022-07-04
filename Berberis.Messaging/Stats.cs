@@ -70,7 +70,7 @@ public readonly struct Stats
     /// <summary>
     /// Processed to Dequeued messages ratio
     /// </summary>
-    public float ConflationRateLongTerm { get => TotalProcessedMessages / (float)TotalDequeuedMessages; }
+    public float ConflationRatioLongTerm { get => TotalProcessedMessages / (float)TotalDequeuedMessages; }
 
     /// <summary>
     /// Current queue length

@@ -38,7 +38,7 @@ public sealed class MonitoringService : BackgroundService
                     var stats = subscription.Statistics.GetStats();
 
                     var intervalStats = $"Int: {stats.IntervalMs:N0} ms; Enq: {stats.EnqueueRateInterval:N1} msg/s; Deq: {stats.DequeueRateInterval:N1} msg/s; Pcs: {stats.ProcessRateInterval:N1} msg/s; EnqT: {stats.TotalEnqueuedMessages:N0}; DeqT: {stats.TotalDequeuedMessages:N0}; PcsT: {stats.TotalProcessedMessages:N0}; AvgLat: {stats.AvgLatencyTimeMsInterval:N4} ms; Avg Svc: {stats.AvgServiceTimeMsInterval:N4} ms";
-                    var longTermStats = $"Conf: {stats.ConflationRateLongTerm:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatioLongTerm:N2}; Deq: {stats.DequeueRateLongTerm:N1} msg/s; Pcs: {stats.ProcessRateLongTerm:N2} msg/s; EAAM: {stats.EstimatedAvgActiveMessages:N4}; AvgLat: {stats.AvgLatencyTimeMsLongTerm:N4} ms; AvgSvc: {stats.AvgServiceTimeMsLongTerm:N4} ms";
+                    var longTermStats = $"Conf: {stats.ConflationRatioLongTerm:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatioLongTerm:N2}; Deq: {stats.DequeueRateLongTerm:N1} msg/s; Pcs: {stats.ProcessRateLongTerm:N2} msg/s; EAAM: {stats.EstimatedAvgActiveMessages:N4}; AvgLat: {stats.AvgLatencyTimeMsLongTerm:N4} ms; AvgSvc: {stats.AvgServiceTimeMsLongTerm:N4} ms";
 
                     _logger.LogInformation("--- Subscription: [{subName}], Interval Stats: {stats}", subscription.Name, intervalStats);
                     _logger.LogInformation("--- Subscription: [{subName}], Long-term Stats: {stats}", subscription.Name, longTermStats);

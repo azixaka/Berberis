@@ -21,10 +21,10 @@ namespace Berberis.Messaging
                 writer.WriteString(useMnemonics ? "PubAt" : "LastPublishedAt", channel.LastPublishedAt.ToString(DateTimeFormat));
 
                 var channelStats = channel.Statistics.GetStats();
-                WriteNumber(writer, useMnemonics ? "InMs" : "IntervalMs", channelStats.IntervalMs);
-                WriteNumber(writer, useMnemonics ? "PRtIn" : "PublishRateInterval", channelStats.PublishRateInterval);
-                WriteNumber(writer, useMnemonics ? "PRtLt" : "PublishRateLongTerm", channelStats.PublishRateLongTerm);
-                WriteNumber(writer, useMnemonics ? "TMsg" : "TotalMessages", channelStats.TotalMessages);
+                WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", channelStats.IntervalMs, 2);
+                WriteFloatingPointNumber(writer, useMnemonics ? "PRtIn" : "PublishRateInterval", channelStats.PublishRateInterval, 2);
+                WriteFloatingPointNumber(writer, useMnemonics ? "PRtLt" : "PublishRateLongTerm", channelStats.PublishRateLongTerm, 2);
+                writer.WriteNumber(useMnemonics ? "TMsg" : "TotalMessages", channelStats.TotalMessages);
 
                 writer.WritePropertyName(useMnemonics ? "Sbs" : "Subscriptions");
                 writer.WriteStartArray();
@@ -38,24 +38,24 @@ namespace Berberis.Messaging
 
                     var stats = subscription.Statistics.GetStats();
 
-                    WriteNumber(writer, useMnemonics ? "CfRtLt" : "ConflationRateLongTerm", stats.ConflationRateLongTerm);
-                    WriteNumber(writer, useMnemonics ? "LatRspRatLt" : "LatencyToResponseTimeRatioLongTerm", stats.LatencyToResponseTimeRatioLongTerm);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "CfRatLt" : "ConflationRatioLongTerm", stats.ConflationRatioLongTerm);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "LatRspRatLt" : "LatencyToResponseTimeRatioLongTerm", stats.LatencyToResponseTimeRatioLongTerm);
 
-                    WriteNumber(writer, useMnemonics ? "InMs" : "IntervalMs", stats.IntervalMs);
-                    WriteNumber(writer, useMnemonics ? "EqRtIn" : "EnqueueRateInterval", stats.EnqueueRateInterval);
-                    WriteNumber(writer, useMnemonics ? "DqRtIn" : "DequeueRateInterval", stats.DequeueRateInterval);
-                    WriteNumber(writer, useMnemonics ? "DqRtLt" : "DequeueRateLongTerm", stats.DequeueRateLongTerm);
-                    WriteNumber(writer, useMnemonics ? "PcRtIn" : "ProcessRateInterval", stats.ProcessRateInterval);
-                    WriteNumber(writer, useMnemonics ? "PcRtLt" : "ProcessRateLongTerm", stats.ProcessRateLongTerm);
-                    WriteNumber(writer, useMnemonics ? "EstAvgAMsg" : "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
-                    WriteNumber(writer, useMnemonics ? "TEqMsg" : "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
-                    WriteNumber(writer, useMnemonics ? "TDqMsg" : "TotalDequeuedMessages", stats.TotalDequeuedMessages);
-                    WriteNumber(writer, useMnemonics ? "TPcMsg" : "TotalProcessedMessages", stats.TotalProcessedMessages);
-                    WriteNumber(writer, useMnemonics ? "QLn" : "QueueLength", stats.QueueLength);
-                    WriteNumber(writer, useMnemonics ? "AvgLatIn" : "AvgLatencyTimeMsInterval", stats.AvgLatencyTimeMsInterval);
-                    WriteNumber(writer, useMnemonics ? "AvgLatLt" : "AvgLatencyTimeMsLongTerm", stats.AvgLatencyTimeMsLongTerm);
-                    WriteNumber(writer, useMnemonics ? "AvgSvcIn" : "AvgServiceTimeMsInterval", stats.AvgServiceTimeMsInterval);
-                    WriteNumber(writer, useMnemonics ? "AvgSvcLt" : "AvgServiceTimeMsLongTerm", stats.AvgServiceTimeMsLongTerm);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", stats.IntervalMs, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "EqRtIn" : "EnqueueRateInterval", stats.EnqueueRateInterval, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "DqRtIn" : "DequeueRateInterval", stats.DequeueRateInterval, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "DqRtLt" : "DequeueRateLongTerm", stats.DequeueRateLongTerm, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PcRtIn" : "ProcessRateInterval", stats.ProcessRateInterval, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PcRtLt" : "ProcessRateLongTerm", stats.ProcessRateLongTerm, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "EstAvgAMsg" : "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
+                    writer.WriteNumber(useMnemonics ? "TEqMsg" : "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
+                    writer.WriteNumber(useMnemonics ? "TDqMsg" : "TotalDequeuedMessages", stats.TotalDequeuedMessages);
+                    writer.WriteNumber(useMnemonics ? "TPcMsg" : "TotalProcessedMessages", stats.TotalProcessedMessages);
+                    writer.WriteNumber(useMnemonics ? "QLn" : "QueueLength", stats.QueueLength);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgLatIn" : "AvgLatencyTimeMsInterval", stats.AvgLatencyTimeMsInterval);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgLatLt" : "AvgLatencyTimeMsLongTerm", stats.AvgLatencyTimeMsLongTerm);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvcIn" : "AvgServiceTimeMsInterval", stats.AvgServiceTimeMsInterval);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvcLt" : "AvgServiceTimeMsLongTerm", stats.AvgServiceTimeMsLongTerm);
 
                     writer.WriteEndObject();
                 }
@@ -67,12 +67,12 @@ namespace Berberis.Messaging
             writer.WriteEndArray();
             writer.WriteEndObject();
 
-            static void WriteNumber(Utf8JsonWriter writer, string name, float value)
+            static void WriteFloatingPointNumber(Utf8JsonWriter writer, string name, float value, int roundDigits = 6)
             {
-                if (double.IsNaN(value) || double.IsInfinity(value))
+                if (float.IsNaN(value) || float.IsInfinity(value))
                     writer.WriteNull(name);
                 else
-                    writer.WriteNumber(name, value);
+                    writer.WriteNumber(name, Math.Round(value, roundDigits));
             }
         }
     }
