@@ -6,7 +6,7 @@ public sealed class StatsTracker
 {
     internal static long GetTicks() => Stopwatch.GetTimestamp();
     internal static float TicksToTimeMs(long ticks) => ticks * MsRatio;
-    internal static float MsRatio => (float)1000 / Stopwatch.Frequency;
+    internal static float MsRatio => 1000f / Stopwatch.Frequency;
 
     private long _totalMessagesEnqueued;
     private long _lastMessagesEnqueued;
@@ -99,7 +99,7 @@ public sealed class StatsTracker
             intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
             intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
 
-            timePassed = (ticks - _lastTicks) / (float) Stopwatch.Frequency;
+            timePassed = (float) (ticks - _lastTicks) / Stopwatch.Frequency;
 
             if (reset)
             {

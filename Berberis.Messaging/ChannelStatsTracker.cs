@@ -5,7 +5,7 @@ namespace Berberis.Messaging;
 public sealed class ChannelStatsTracker
 {
     internal static long GetTicks() => Stopwatch.GetTimestamp();
-    internal static float MsRatio => (float)1000 / Stopwatch.Frequency;
+    internal static float MsRatio => 1000f / Stopwatch.Frequency;
 
     private long _totalMessages;
     private long _lastMessages;
@@ -45,7 +45,7 @@ public sealed class ChannelStatsTracker
         {
             intervalMessagesInc = totalMesssagesInc - _lastMessages;
 
-            timePassed = (ticks - _lastTicks) / Stopwatch.Frequency;
+            timePassed = (float)(ticks - _lastTicks) / Stopwatch.Frequency;
 
             if (reset)
             {
