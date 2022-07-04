@@ -8,7 +8,7 @@
 
 	<PropertyGroup>
 		<PackageId>Berberis.Messaging</PackageId>
-		<Version>1.1.0</Version>
+		<Version>1.1.1</Version>
 		<Company>Azik Gudratov</Company>
 		<Authors>Azik Gudratov</Authors>
 		<PackageDescription>Berberis is an in-process message broker implementation</PackageDescription>
