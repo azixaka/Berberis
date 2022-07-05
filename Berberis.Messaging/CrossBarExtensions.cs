@@ -16,7 +16,7 @@ namespace Berberis.Messaging
             {
                 writer.WriteStartObject();
                 writer.WriteString(useMnemonics ? "Ch" : "Channel", channel.Name);
-                writer.WriteString(useMnemonics ? "Tp" : "MessageBodyType", channel.BodyType.Name);
+                writer.WriteString(useMnemonics ? "Tp" : "MessageBodyType", channel.BodyType.FullName);
                 writer.WriteString(useMnemonics ? "PubBy" : "LastPublishedBy", channel.LastPublishedBy);
                 writer.WriteString(useMnemonics ? "PubAt" : "LastPublishedAt", channel.LastPublishedAt.ToString(DateTimeFormat));
 
