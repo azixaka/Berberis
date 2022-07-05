@@ -19,6 +19,8 @@
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
 
 		<ProjectReference Include="..\Berberis.Messaging\Berberis.Messaging.csproj" />
+
+		<ProjectReference Include="..\Berberis.Recorder\Berberis.Recorder.csproj" />
 	</ItemGroup>
 
 </Project>
