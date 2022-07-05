@@ -32,5 +32,7 @@ public interface ICrossBar
 
     long GetNextCorrelationId();
 
-    bool TracingEnabled { get; set; }
+    bool MessageTracingEnabled { get; set; }
+
+    bool PublishLoggingEnabled { get; set; }
 }

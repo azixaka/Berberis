@@ -19,7 +19,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     public string TracingChannel { get; } = "$message.traces";
 
-    public bool TracingEnabled
+    public bool MessageTracingEnabled
     {
         get => _tracingEnabled;
         set
@@ -31,6 +31,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             }
         }
     }
+
+    public bool PublishLoggingEnabled { get; set; }
 
     public CrossBar(ILoggerFactory loggerFactory)
     {
@@ -60,7 +62,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             var id = channel.NextMessageId();
             var msg = new Message<TBody>(id, timestamp.ToBinary(), correlationId, key, ticks, from, body);
 
-            if (TracingEnabled)
+            if (MessageTracingEnabled)
             {
                 PublishSystem(TracingChannel,
                                 new MessageTrace
@@ -93,7 +95,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     // and send the body wrapped into a Message envelope with some metadata
                     if (subscription.TryWrite(msg))
                     {
-                        LogMessageSent(msg.Id, msg.CorrelationId, msg.Key ?? string.Empty, subscription.Name, channelName);
+                        if (PublishLoggingEnabled)
+                        {
+                            LogMessageSent(msg.Id, msg.CorrelationId, msg.Key ?? string.Empty, subscription.Name, channelName);
+                        }
                     }
                     else
                     {

@@ -41,14 +41,14 @@ public sealed partial class Subscription<TBody> : ISubscription
             ? Channel.CreateBounded<Message<TBody>>(new BoundedChannelOptions(bufferCapacity.Value)
             {
                 FullMode = BoundedChannelFullMode.Wait,
-                SingleReader = false,
-                SingleWriter = false,
+                SingleReader = true, // RunReadLoopAsync is the only path reading off the channel
+                SingleWriter = false, // Publisher writes to all Subscriptions and many publishers can do that simultaneously
                 AllowSynchronousContinuations = false
             })
             : Channel.CreateUnbounded<Message<TBody>>(new UnboundedChannelOptions
             {
-                SingleReader = false, // Subscription is thread-safe, so we don't know how consumer is using it
-                SingleWriter = false, // Publisher currently writes to all Subscriptions
+                SingleReader = true,
+                SingleWriter = false,
                 AllowSynchronousContinuations = false
             });
 
@@ -106,7 +106,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                 var latencyTicks = Statistics.RecordLatencyAndInterDequeueTime(message.InceptionTicks);
                 Statistics.IncNumOfDequeuedMessages();
 
-                if (!_isSystemChannel && _crossBar.TracingEnabled)
+                if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
                 {
                     _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
                                      new MessageTrace
@@ -235,7 +235,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
         Statistics.IncNumOfProcessedMessages();
 
-        if (!_isSystemChannel && _crossBar.TracingEnabled)
+        if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
         {
             _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
                              new MessageTrace
@@ -250,7 +250,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                              });
         }
 
-        if (_logger.IsEnabled(LogLevel.Trace))
+        if (_crossBar.PublishLoggingEnabled && _logger.IsEnabled(LogLevel.Trace))
         {
             LogStats(message.Id,
                 StatsTracker.TicksToTimeMs(svcTimeTicks),

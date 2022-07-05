@@ -1,4 +1,6 @@
 ﻿using Berberis.Messaging;
+using System.Text;
+using System.Text.Json;
 
 namespace Berberis.SampleApp;
 
@@ -31,8 +33,9 @@ public sealed class MonitoringService : BackgroundService
         {
             foreach (var channel in _xBar.GetChannels())
             {
-                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime());
+                var chatStats = channel.Statistics.GetStats();
 
+                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, PubIn: {pubIn:N2}, PubLt: {pubLt:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime(), chatStats.PublishRateInterval, chatStats.PublishRateLongTerm);
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
                     var stats = subscription.Statistics.GetStats();
@@ -42,6 +45,15 @@ public sealed class MonitoringService : BackgroundService
 
                     _logger.LogInformation("--- Subscription: [{subName}], Interval Stats: {stats}", subscription.Name, intervalStats);
                     _logger.LogInformation("--- Subscription: [{subName}], Long-term Stats: {stats}", subscription.Name, longTermStats);
+
+                    //var ms = new MemoryStream();
+                    //var writer = new Utf8JsonWriter(ms);
+                    //_xBar.MetricsToJson(writer);
+                    //writer.Dispose();
+
+                    //var str = Encoding.UTF8.GetString(ms.ToArray());
+
+                    //_logger.LogInformation(str);
                 }
             }
 

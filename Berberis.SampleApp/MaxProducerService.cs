@@ -25,10 +25,10 @@ public sealed class MaxProducerService : BackgroundService
 
                 for (long i = 0; i < long.MaxValue; i++)
                 {
-                    _xBar.Publish(destination, i, key: key.ToString(), store: true);
+                    _xBar.Publish(destination, i, key, key: key.ToString(), store: true, from: "MaxProducerService");
                     if (key++ > 100)
                         key = 0;
-                    Thread.SpinWait(10000);
+                    //Thread.SpinWait(10000);
                 }
             });
 

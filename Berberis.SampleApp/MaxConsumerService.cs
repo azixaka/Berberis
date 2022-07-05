@@ -24,10 +24,10 @@ public sealed class MaxConsumerService : BackgroundService
             {
                 //await Task.Delay(1);
 
-                Thread.SpinWait(100000);
+                Thread.SpinWait(200000);
 
                 return ValueTask.CompletedTask;
-            }, fetchState: true, TimeSpan.FromSeconds(1), stoppingToken);
+            }, fetchState: true, TimeSpan.FromSeconds(0.5), stoppingToken);
 
         await subscription.MessageLoop;
     }
