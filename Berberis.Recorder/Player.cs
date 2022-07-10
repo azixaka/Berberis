@@ -4,11 +4,19 @@ namespace Berberis.Recorder;
 
 internal sealed class Player<TBody> : IPlayer
 {
+    private Stream _stream;
+
     private Player() { }
 
-    internal static IPlayer CreatePlayer(ICrossBar crossBar, string channel, string recordingName, PlayMode playMode, CancellationToken token = default)
+    private void SetParams(Stream stream)
+    {
+        _stream = stream;
+    }
+
+    internal static IPlayer CreatePlayer(ICrossBar crossBar, string channel, Stream inputStream, PlayMode playMode, CancellationToken token = default)
     {
         var player = new Player<TBody>();
+        player.SetParams(inputStream);
         return player;
     }
 

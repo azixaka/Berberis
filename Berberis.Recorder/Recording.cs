@@ -6,21 +6,21 @@ namespace Berberis.Recorder;
 public sealed class Recording<TBody> : IRecording
 {
     private ISubscription _subscription;
-    private FileStream _stream;
+    private Stream _stream;
 
     private Recording() { }
 
-    private void SetSubscription(ISubscription subscription)
+    private void SetParams(ISubscription subscription, Stream stream)
     {
         _subscription = subscription;
-        _stream = File.OpenWrite($"{_subscription.Name}.json");
+        _stream = stream;
     }
 
-    internal static IRecording CreateRecording(ICrossBar crossBar, string channel, string recordingName, bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
+    internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream outputStream, bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
-        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, $"Recording-[{recordingName}]", saveInitialState, conflationInterval, token);
-        recording.SetSubscription(subscription);
+        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
+        recording.SetParams(subscription, outputStream);
         return recording;
     }
 
