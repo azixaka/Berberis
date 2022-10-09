@@ -319,12 +319,24 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             var prefix = pattern.AsSpan().Slice(0, recursivePosition);
             return channelName.AsSpan().StartsWith(prefix);
         }
-        else
+
+        //todo: this is used only when subscribing/unsubscribing (rare) and creating a new channel (rare), so allocations don't matter in this case
+        //it is however nice to change this to a span.slice by '.' to reduce allocations
+        //also two overloads could be added, that receives channelParts and another one receiving patternParts for ProcessWildcardSubscritptions and FindMatchingChannels accordingly
+
+        var channelParts = channelName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var patternParts = pattern.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+        if (channelParts.Length != patternParts.Length)
+            return false;
+
+        int k = 0;
+        while (k < channelParts.Length && (channelParts[k] == patternParts[k] || patternParts[k] == "*"))
         {
-            //todo: handle * sub-parts
+            k++;
         }
 
-        return false;
+        return k == channelParts.Length;
     }
 
     private static bool IsWildcardSubscription(string channelName) => channelName.Contains(">") || channelName.Contains("*");
