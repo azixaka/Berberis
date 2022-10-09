@@ -21,13 +21,19 @@ public sealed class MonitoringService : BackgroundService
 
         //_xBar.TracingEnabled = true;
 
-        using var tracingSub = _xBar.Subscribe<MessageTrace>("$message.traces",
-            msg =>
-            {
-                _logger.LogInformation(msg.Body.ToString());
+        ISubscription tracingSub = null;
 
-                return ValueTask.CompletedTask;
-            }, stoppingToken);
+        try
+        {
+            tracingSub = _xBar.Subscribe<MessageTrace>("$message.traces",
+                msg =>
+                {
+                    _logger.LogInformation(msg.Body.ToString());
+
+                    return ValueTask.CompletedTask;
+                }, stoppingToken);
+        }
+        catch { }
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -60,6 +66,6 @@ public sealed class MonitoringService : BackgroundService
             await Task.Delay(1000);
         }
 
-        await tracingSub.MessageLoop;
+        await tracingSub?.MessageLoop;
     }
 }

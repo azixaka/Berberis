@@ -2,7 +2,7 @@
 
 namespace Berberis.SampleApp;
 
-public sealed class StockPriceProducerService : BackgroundService
+public sealed class StockPriceSeparateChannelsProducerService : BackgroundService
 {
     private readonly ICrossBar _xBar;
 
@@ -10,7 +10,7 @@ public sealed class StockPriceProducerService : BackgroundService
     private readonly int _minTickInterval;
     private readonly int _maxTickInterval;
 
-    public StockPriceProducerService(ICrossBar xBar)
+    public StockPriceSeparateChannelsProducerService(ICrossBar xBar)
     {
         _xBar = xBar;
 
@@ -40,7 +40,7 @@ public sealed class StockPriceProducerService : BackgroundService
             var index = random.Next(0, _symbols.Length);
             var price = new StockPrice(_symbols[index], random.NextDouble());
 
-            _ = _xBar.Publish(destination, price, 0, key: price.Symbol, store: true, from: nameof(StockPriceProducerService));
+            _ = _xBar.Publish($"{destination}.{price.Symbol}", price, 0, key: price.Symbol, store: true, from: nameof(StockPriceSeparateChannelsProducerService));
 
             await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
         }

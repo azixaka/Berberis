@@ -11,6 +11,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     private long _globalSubId;
     private long _globalCorrelationId;
     private readonly ConcurrentDictionary<string, Lazy<Channel>> _channels = new();
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<long, ISubscription>> _wildcardSubscriptions = new();
     private int _isDisposed;
 
     private readonly FailedSubscriptionException _failedSubscriptionException = new();
@@ -162,18 +163,26 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     {
         EnsureNotDisposed();
 
-        var sysChannel = GetSystemChannel(channelName);
+        if (IsSystemChannel(channelName))
+        {
+            return SubscribeSystem(channelName, handler, subscriptionName, token);
+        }
+
+        if (IsWildcardSubscription(channelName))
+        {
+            return SubscribeWildcard(channelName, handler, subscriptionName, fetchState, slowConsumerStrategy, bufferCapacity, conflationInterval, token);
+        }
 
         var subType = typeof(TBody);
 
-        var channel = sysChannel ?? GetOrAddChannel<TBody>(channelName, subType);
+        var channel = GetOrAddChannel<TBody>(channelName, subType);
 
         // if channel was already there and its type matches the type passed with this call
         if (channel.BodyType == subType)
         {
-            Func<IEnumerable<Message<TBody>>> stateFactory = null;
+            Func<IEnumerable<Message<TBody>>>? stateFactory = null;
 
-            if (sysChannel == null && fetchState)
+            if (fetchState)
             {
                 var messageStore = channel.GetMessageStore<TBody>();
                 if (messageStore != null)
@@ -185,15 +194,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             //create, register and return subscription
             long id = Interlocked.Increment(ref _globalSubId);
 
-            var subscription = sysChannel == null ? new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
+            var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
                                                        id, subscriptionName, channelName, bufferCapacity, conflationInterval, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
-                                                       stateFactory, this, false)
-
-                                                   : new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                       id, subscriptionName, channelName, 1000, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
-                                                       () => Unsubscribe(channelName, id),
-                                                       stateFactory, this, true);
+                                                       stateFactory != null ? new[] { stateFactory } : null, this, false, false);
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
@@ -212,6 +216,165 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
+    private ISubscription SubscribeWildcard<TBody>(string pattern, Func<Message<TBody>, ValueTask> handler,
+                                                      string? subscriptionName,
+                                                      bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
+                                                      TimeSpan conflationInterval,
+                                                      CancellationToken token = default)
+    {
+        //todo: review adding wildcardSubscription to the registry here and adding one in the CreateNewChannel when publishing/subscribing potential RACE condition
+
+        var wildcardSubscriptions = _wildcardSubscriptions.GetOrAdd(pattern, new ConcurrentDictionary<long, ISubscription>());
+
+        //create, register and return subscription
+        long id = Interlocked.Increment(ref _globalSubId);
+
+        var stateFactories = new List<Func<IEnumerable<Message<TBody>>>>();
+
+        var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
+                                                   id, subscriptionName, pattern, bufferCapacity, conflationInterval, slowConsumerStrategy, handler,
+                                                   () => Unsubscribe(pattern, id),
+                                                   stateFactories, this, false, true);
+
+        //re: race condition described above - it could be that someone published|subscribed and created a new channel matching this very same pattern by now
+        //but our new subscription isn't in the registry yet, so that update is missed.
+        //we will howerver FindMatchingChannels which will contain this channel and subscribe on it. If it has state, we'll fetch it too.
+
+        if (!wildcardSubscriptions.TryAdd(id, subscription))
+        {
+            // can't happen as we equate subscriptions by their names which contain globalSubId which is unique
+        }
+
+        var channels = FindMatchingChannels(pattern);
+
+        if (channels.Any())
+        {
+            var subType = typeof(TBody);
+
+            foreach (var channel in channels)
+            {
+                // if channel was already there and its type matches the type passed with this call
+                if (channel.BodyType == subType)
+                {
+                    if (fetchState)
+                    {
+                        var messageStore = channel.GetMessageStore<TBody>();
+                        if (messageStore != null)
+                        {
+                            stateFactories.Add(messageStore.GetState);
+                        }
+                    }
+
+                    if (channel.Subscriptions.TryAdd(id, subscription))
+                    {
+                        _logger.LogInformation("Subscribed [{sub}] on channel [{channel}]", subscription.Name, pattern);
+                    }
+                    else { } // can't happen due to atomic glocal subscription id increments
+                }
+                else // not the type Subscribe caller was expecting
+                {
+                    _logger.LogWarning("Can't subscribe on channel [{channel}] with type [{subType}] using wildcard [{wildcard}] as it's registered with a different type - [{regType}]",
+                        channel.Name, subType.Name, pattern, channel.BodyType.Name);
+                }
+            }
+        }
+
+        subscription.StartSubscription(token);
+
+        return subscription;
+    }
+
+    private IReadOnlyCollection<Channel> FindMatchingChannels(string pattern)
+        => _channels.Where(kvp => MatchesChannelPattern(kvp.Key, pattern))
+                    .Select(kvp => kvp.Value.Value)
+                    .ToArray();
+
+    private void ProcessWildcardSubscriptions(Channel channel)
+    {
+        foreach (var (pattern, subscriptions) in _wildcardSubscriptions)
+        {
+            if (MatchesChannelPattern(channel.Name, pattern))
+            {
+                foreach (var (id, subscription) in subscriptions)
+                {
+                    if (channel.BodyType == subscription.MessageBodyType)
+                    {
+                        if (channel.Subscriptions.TryAdd(id, subscription))
+                        {
+                            _logger.LogInformation("Subscribed [{sub}] on channel [{channel}]", subscription.Name, pattern);
+                        }
+                        else { } // can't happen due to atomic glocal subscription id increments
+                    }
+                }
+            }
+        }
+    }
+
+    private bool MatchesChannelPattern(string channelName, string pattern)
+    {
+        int recursivePosition = pattern.IndexOf('>');
+
+        if (recursivePosition > 0)
+        {
+            var prefix = pattern.AsSpan().Slice(0, recursivePosition);
+            return channelName.AsSpan().StartsWith(prefix);
+        }
+        else
+        {
+            //todo: handle * sub-parts
+        }
+
+        return false;
+    }
+
+    private static bool IsWildcardSubscription(string channelName) => channelName.Contains(">") || channelName.Contains("*");
+
+    private static bool IsSystemChannel(string channelName) => channelName.StartsWith("$");
+
+    private ISubscription SubscribeSystem<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler, string? subscriptionName, CancellationToken token = default)
+    {
+        var subType = typeof(TBody);
+
+        if (IsWildcardSubscription(channelName))
+        {
+            throw new InvalidSubscriptionException("Can't wildcard subscribe on system channels");
+        }
+
+        var channel = GetSystemChannel(channelName);
+        if (channel != null)
+        {
+            if (channel.BodyType == subType)
+            {
+                //create, register and return subscription
+                long id = Interlocked.Increment(ref _globalSubId);
+
+                var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
+                                                               id, subscriptionName, channelName, 1000, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
+                                                               () => Unsubscribe(channelName, id),
+                                                               null, this, true, false);
+
+                if (channel.Subscriptions.TryAdd(id, subscription))
+                {
+                    _logger.LogInformation("Subscribed [{sub}] on channel [{channel}]", subscription.Name, channelName);
+                }
+                else { } // can't happen due to atomic id increments above
+
+                subscription.StartSubscription(token);
+
+                return subscription;
+            }
+            else // not the type Subscribe caller was expecting
+            {
+                _logger.LogWarning("Failed to subscribe on channel [{channel}] with type [{subType}] as it's already registered with type [{regType}]", channelName, subType.Name, channel.BodyType.Name);
+                throw new InvalidOperationException($"Can't subscribe on channel [{channelName}] with type [{subType.Name}] as it's already registered with type [{channel.BodyType.Name}]");
+            }
+        }
+        else
+        {
+            throw new InvalidSubscriptionException($"No system channel [{channelName}] found. Is MessageTracing enabled?");
+        }
+    }
+
     public bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message)
     {
         if (_channels.TryGetValue(channelName, out var channel))
@@ -221,6 +384,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             if (messageStore != null)
             {
                 return messageStore.TryDelete(key, out message);
+                //todo: broadcast deletion
             }
         }
 
@@ -238,6 +402,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             {
                 messageStore.Reset();
                 return true;
+                //todo: broadcast reset
             }
         }
 
@@ -260,7 +425,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     }).ToList();
     }
 
-    public IReadOnlyCollection<SubscriptionInfo> GetChannelSubscriptions(string channelName)
+    public IReadOnlyCollection<SubscriptionInfo>? GetChannelSubscriptions(string channelName)
     {
         if (_channels.TryGetValue(channelName, out var channel))
         {
@@ -283,6 +448,24 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
 
+    public bool TryDeleteChannel(string channelName)
+    {
+        if (_channels.TryRemove(channelName, out var channelProxy))
+        {
+            foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
+            {
+                if (!subscription.IsWildcard)
+                {
+                    subscription.TryDispose();
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     private Channel? GetSystemChannel(string channel)
     {
         if (channel.StartsWith("$") && _channels.TryGetValue(channel, out var channelProxy))
@@ -301,19 +484,40 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             c => new Lazy<Channel>(() =>
             {
                 _logger.LogInformation("Channel [{channel}] for type [{bodyType}] is created.", c, bodyType);
-                return new Channel
+
+                var channel = new Channel
                 {
-                    BodyType = bodyType
+                    BodyType = bodyType,
+                    Name = c
                 };
+
+                ProcessWildcardSubscriptions(channel);
+
+                return channel;
             }))
             .Value;
     }
 
     private void Unsubscribe(string channelName, long id)
     {
-        if (_channels.TryGetValue(channelName, out var channel))
+        if (IsWildcardSubscription(channelName))
         {
-            if (channel.Value.Subscriptions.TryRemove(id, out var sub))
+            var channels = FindMatchingChannels(channelName);
+            foreach (var channel in channels)
+            {
+                Remove(channel);
+            }
+
+            _ = _wildcardSubscriptions.TryGetValue(channelName, out var subscriptions) && subscriptions.TryRemove(id, out _);
+        }
+        else if (_channels.TryGetValue(channelName, out var channel))
+        {
+            Remove(channel.Value);
+        }
+
+        void Remove(Channel channel)
+        {
+            if (channel.Subscriptions.TryRemove(id, out var sub))
             {
                 _logger.LogInformation("Unsubscribed [{sub}] from channel [{channel}]", sub.Name, channelName);
             }

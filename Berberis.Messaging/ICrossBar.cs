@@ -4,7 +4,7 @@ public interface ICrossBar
 {
     IReadOnlyList<CrossBar.ChannelInfo> GetChannels();
 
-    IReadOnlyCollection<CrossBar.SubscriptionInfo> GetChannelSubscriptions(string channelName);
+    IReadOnlyCollection<CrossBar.SubscriptionInfo>? GetChannelSubscriptions(string channelName);
 
     ValueTask Publish<TBody>(string channel, TBody body);
     ValueTask Publish<TBody>(string channel, TBody body, string from);
@@ -29,6 +29,7 @@ public interface ICrossBar
 
     bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
     bool ResetStore<TBody>(string channelName);
+    bool TryDeleteChannel(string channelName);
 
     long GetNextCorrelationId();
 

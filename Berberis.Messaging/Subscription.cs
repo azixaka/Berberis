@@ -10,7 +10,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
-    private Func<IEnumerable<Message<TBody>>>? _stateFactory;
+    private IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? _stateFactories;
     private readonly CrossBar _crossBar;
     private readonly bool _isSystemChannel;
 
@@ -19,19 +19,20 @@ public sealed partial class Subscription<TBody> : ISubscription
         SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
-        Func<IEnumerable<Message<TBody>>>? stateFactory,
-        CrossBar crossBar, bool isSystemChannel)
+        IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? stateFactories,
+        CrossBar crossBar, bool isSystemChannel, bool isWildcard)
     {
         _logger = logger;
-
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
+        MessageBodyType = typeof(TBody);
+        IsWildcard = isWildcard;
 
         _channelName = channelName;
         ConflationInterval = conflationIntervalInterval;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
         _disposeAction = disposeAction;
-        _stateFactory = stateFactory;
+        _stateFactories = stateFactories;
         _crossBar = crossBar;
         _isSystemChannel = isSystemChannel;
 
@@ -60,7 +61,10 @@ public sealed partial class Subscription<TBody> : ISubscription
     public StatsTracker Statistics { get; }
     public DateTime SubscribedOn { get; init; }
     public TimeSpan ConflationInterval { get; init; }
-    public Task MessageLoop { get; private set; }
+    public Task? MessageLoop { get; private set; }
+    public Type MessageBodyType { get; }
+
+    public bool IsWildcard { get; init; }
 
     internal bool TryWrite(Message<TBody> message)
     {
@@ -211,17 +215,16 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task SendState()
     {
-        var stateFactory = Interlocked.Exchange(ref _stateFactory, null);
-
-        if (stateFactory != null)
-        {
-            foreach (var message in stateFactory())
+        if (_stateFactories != null)
+            foreach (var stateFactory in _stateFactories)
             {
-                var task = ProcessMessage(message, 0);
-                if (!task.IsCompleted)
-                    await task;
+                foreach (var message in stateFactory())
+                {
+                    var task = ProcessMessage(message, 0);
+                    if (!task.IsCompleted)
+                        await task;
+                }
             }
-        }
     }
 
     private async Task ProcessMessage(Message<TBody> message, long latencyTicks)
@@ -263,8 +266,14 @@ public sealed partial class Subscription<TBody> : ISubscription
         var disposeAction = Interlocked.Exchange(ref _disposeAction, null);
         if (disposeAction != null)
         {
-            disposeAction();
-            _channel.Writer.TryComplete();
+            try
+            {
+                disposeAction();
+            }
+            finally
+            {
+                _channel.Writer.TryComplete();
+            }
         }
     }
 

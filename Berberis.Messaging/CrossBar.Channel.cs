@@ -15,6 +15,8 @@ partial class CrossBar
 
         public Type BodyType { get; init; }
 
+        public string Name { get; init; }
+
         public ConcurrentDictionary<long, ISubscription> Subscriptions { get; }
             = new ConcurrentDictionary<long, ISubscription>();
 
