@@ -6,7 +6,7 @@ public interface ISubscription : IDisposable
     bool IsWildcard { get; }
     DateTime SubscribedOn { get; }
     TimeSpan ConflationInterval { get; }
-    Task? MessageLoop { get; }
+    Task MessageLoop { get; }
     Type MessageBodyType { get; }
 
     StatsTracker Statistics { get; }

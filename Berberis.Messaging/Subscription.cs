@@ -61,7 +61,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     public StatsTracker Statistics { get; }
     public DateTime SubscribedOn { get; init; }
     public TimeSpan ConflationInterval { get; init; }
-    public Task? MessageLoop { get; private set; }
+    public Task MessageLoop { get; private set; }
     public Type MessageBodyType { get; }
 
     public bool IsWildcard { get; init; }
