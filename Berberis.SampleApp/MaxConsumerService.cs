@@ -15,12 +15,12 @@ public sealed class MaxConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "number.inc";
+        const string destination = "number.inc";
 
         using var subscription = _xBar.Subscribe<long>(destination,
-            msg => ProcessMessage(msg), fetchState: true, TimeSpan.FromSeconds(0.5), stoppingToken);
+            ProcessMessage, fetchState: true, TimeSpan.FromSeconds(0.5), stoppingToken);
 
         await subscription.MessageLoop;
     }

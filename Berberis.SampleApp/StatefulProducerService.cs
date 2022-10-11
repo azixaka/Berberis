@@ -13,13 +13,13 @@ public sealed class StatefulProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(1000);
+        await Task.Delay(1000, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             var value = DateTime.UtcNow.ToString("dd/mm/yyyy HH:mm:ss.fff");
-            _xBar.Publish("stateful.time", value, key: value, store: true);
-            await Task.Delay(1000);
+            await _xBar.Publish("stateful.time", value, key: value, store: true);
+            await Task.Delay(1000, stoppingToken);
         }
     }
 }

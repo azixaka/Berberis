@@ -14,10 +14,11 @@ public sealed class StockPriceRecorderService : BackgroundService
         _xBar = xBar;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var destination = "stock.prices";
+        const string destination = "stock.prices";
 
         using var recording = _xBar.Record<StockPrice>(destination, "stock.prices", true, TimeSpan.FromSeconds(1), stoppingToken);
+        return Task.CompletedTask;
     }
 }

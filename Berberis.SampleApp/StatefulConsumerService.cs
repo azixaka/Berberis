@@ -15,7 +15,7 @@ public sealed class StatefulConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(5000);
+        await Task.Delay(5000, stoppingToken);
 
         using var subscription = _xBar.Subscribe<string>("stateful.time",
             msg =>

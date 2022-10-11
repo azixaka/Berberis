@@ -29,11 +29,11 @@ public sealed class StockPriceProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(1000);
+        await Task.Delay(1000, stoppingToken);
 
-        var destination = "stock.prices";
+        const string destination = "stock.prices";
 
-        var random = new Random();
+        var random = Random.Shared;
 
         while (!stoppingToken.IsCancellationRequested)
         {

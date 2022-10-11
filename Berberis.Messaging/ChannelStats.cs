@@ -25,7 +25,7 @@ public readonly struct ChannelStats
     /// <summary>
     /// All time Publish rate, in msg/s
     /// </summary>
-    public float PublishRateLongTerm { get => (TotalMessages / _totalInterPublishTimeMs) * 1000; }
+    public float PublishRateLongTerm => (TotalMessages / _totalInterPublishTimeMs) * 1000;
 
     public ChannelStats(float intervalMs,
         float messagesPerSecond,

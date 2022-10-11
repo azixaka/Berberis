@@ -15,9 +15,9 @@ public sealed class ProcessesConsumerService1 : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "processes.info";
+        const string destination = "processes.info";
 
         using var subscription = _xBar.Subscribe<ProcessInfo>(destination,
             msg =>

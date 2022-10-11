@@ -14,9 +14,9 @@ public sealed class ProcessesProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "processes.info";
+        const string destination = "processes.info";
 
         var processes = Process.GetProcesses();
 

@@ -30,7 +30,7 @@ public sealed class StatsTracker
     private long _lastInterProcessTime;
 
     private long _lastTicks;
-    private object _syncObj = new();
+    private readonly object _syncObj = new();
 
     internal void IncNumOfEnqueuedMessages() => Interlocked.Increment(ref _totalMessagesEnqueued);
 
@@ -74,9 +74,9 @@ public sealed class StatsTracker
     {
         var ticks = GetTicks();
 
-        var totalMesssagesEnqueued = Interlocked.Read(ref _totalMessagesEnqueued);
-        var totalMesssagesDequeued = Interlocked.Read(ref _totalMessagesDequeued);
-        var totalMesssagesProcessed = Interlocked.Read(ref _totalMessagesProcessed);
+        var totalMessagesEnqueued = Interlocked.Read(ref _totalMessagesEnqueued);
+        var totalMessagesDequeued = Interlocked.Read(ref _totalMessagesDequeued);
+        var totalMessagesProcessed = Interlocked.Read(ref _totalMessagesProcessed);
 
         var totalLatencyTicks = Interlocked.Read(ref _totalLatencyTicks);
         var totalServiceTicks = Interlocked.Read(ref _totalServiceTicks);
@@ -92,9 +92,9 @@ public sealed class StatsTracker
 
         lock (_syncObj)
         {
-            intervalMessagesEnqueued = totalMesssagesEnqueued - _lastMessagesEnqueued;
-            intervalMessagesDequeued = totalMesssagesDequeued - _lastMessagesDequeued;
-            intervalMessagesProcessed = totalMesssagesProcessed - _lastMessagesProcessed;
+            intervalMessagesEnqueued = totalMessagesEnqueued - _lastMessagesEnqueued;
+            intervalMessagesDequeued = totalMessagesDequeued - _lastMessagesDequeued;
+            intervalMessagesProcessed = totalMessagesProcessed - _lastMessagesProcessed;
 
             intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
             intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
@@ -103,9 +103,9 @@ public sealed class StatsTracker
 
             if (reset)
             {
-                _lastMessagesEnqueued = totalMesssagesEnqueued;
-                _lastMessagesDequeued = totalMesssagesDequeued;
-                _lastMessagesProcessed = totalMesssagesProcessed;
+                _lastMessagesEnqueued = totalMessagesEnqueued;
+                _lastMessagesDequeued = totalMessagesDequeued;
+                _lastMessagesProcessed = totalMessagesProcessed;
 
                 _lastLatencyTicks = totalLatencyTicks;
                 _lastServiceTicks = totalServiceTicks;
@@ -129,10 +129,10 @@ public sealed class StatsTracker
             intervalMessagesEnqueued / timePassed,
             intervalMessagesDequeued / timePassed,
             intervalMessagesProcessed / timePassed,
-            totalMesssagesEnqueued,
-            totalMesssagesDequeued,
+            totalMessagesEnqueued,
+            totalMessagesDequeued,
             totalInterDequeueTimeMs,
-            totalMesssagesProcessed,
+            totalMessagesProcessed,
             totalInterProcessTimeMs,
             totalLatencyTimeMs,
             avgLatencyTimeMs,
