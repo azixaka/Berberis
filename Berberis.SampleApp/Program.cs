@@ -11,15 +11,16 @@ public static class Program
     {
         var serviceEnvironment = new ServiceEnvironment("Trayport Service App", args);
 
-        var webHost = WebHost.CreateDefaultBuilder(serviceEnvironment.WebHostArgs)
+        var webHost = WebHost.CreateDefaultBuilder(serviceEnvironment.WebHostArgs!)
             .UseKestrel()
+
             .ConfigureKestrel(
                 (context, options) =>
                 {
                     options.AllowSynchronousIO = true;
                     options.Configure(context.Configuration.GetSection("Kestrel"));
                 })
-            .UseContentRoot(serviceEnvironment.PathToContentRoot)
+            .UseContentRoot(serviceEnvironment.PathToContentRoot!)
             .ConfigureAppConfiguration(
                 (hostingContext, config) =>
                 {
@@ -37,7 +38,7 @@ public static class Program
                         .AddCommandLine(serviceEnvironment.WebHostArgs); // and here to allow overriding settings values
                 })
             .UseSerilog((context, loggerConfiguration) =>
-               loggerConfiguration.ReadFrom.Configuration(context.Configuration))
+                loggerConfiguration.ReadFrom.Configuration(context.Configuration))
            .UseStartup<Startup>()
            .Build();
 

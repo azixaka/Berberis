@@ -4,7 +4,7 @@ namespace Berberis.Messaging;
 
 partial class CrossBar
 {
-    internal record Channel
+    internal sealed record Channel
     {
         private long _channelSequenceId;
 
@@ -17,16 +17,15 @@ partial class CrossBar
 
         public string Name { get; init; }
 
-        public ConcurrentDictionary<long, ISubscription> Subscriptions { get; }
-            = new ConcurrentDictionary<long, ISubscription>();
+        public ConcurrentDictionary<long, ISubscription> Subscriptions { get; } = new();
 
-        public ChannelStatsTracker Statistics { get; } = new ChannelStatsTracker();
+        public ChannelStatsTracker Statistics { get; } = new ();
 
         public DateTime LastPublishedAt { get; internal set; }
 
         public string? LastPublishedBy { get; internal set; }
 
-        public MessageStore<TBody> GetMessageStore<TBody>()
+        public MessageStore<TBody>? GetMessageStore<TBody>()
         {
             if (Volatile.Read(ref _messageStoreInitialised))
             {

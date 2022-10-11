@@ -10,7 +10,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
-    private IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? _stateFactories;
+    private readonly IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? _stateFactories;
     private readonly CrossBar _crossBar;
     private readonly bool _isSystemChannel;
 
@@ -134,7 +134,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                 else
                 {
                     if (!semaphore!.Wait(0))
-                        await semaphore!.WaitAsync();
+                        await semaphore!.WaitAsync(token);
 
                     try
                     {

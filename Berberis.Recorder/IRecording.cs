@@ -1,8 +1,7 @@
-﻿namespace Berberis.Recorder
+﻿namespace Berberis.Recorder;
+
+public interface IRecording : IDisposable
 {
-    public interface IRecording : IDisposable
-    {
-        bool Record();
-        bool Pause();
-    }
+    bool Record();
+    bool Pause();
 }

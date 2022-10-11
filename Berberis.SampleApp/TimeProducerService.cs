@@ -13,14 +13,14 @@ public sealed class TimeProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "current.time";
+        const string destination = "current.time";
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            _xBar.Publish(destination, DateTime.UtcNow.ToString("dd/mm/yyyy HH:mm:ss.fff"));
-            await Task.Delay(1000);
+            await _xBar.Publish(destination, DateTime.UtcNow.ToString("dd/mm/yyyy HH:mm:ss.fff"));
+            await Task.Delay(1000, stoppingToken);
         }
     }
 }

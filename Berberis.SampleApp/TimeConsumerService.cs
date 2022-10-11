@@ -15,9 +15,9 @@ public sealed class TimeConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "current.time";
+        const string destination = "current.time";
 
         using var subscription = _xBar.Subscribe<string>(destination,
             msg =>

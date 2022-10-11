@@ -13,9 +13,9 @@ public sealed class MaxProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        await Task.Delay(3000, stoppingToken);
 
-        var destination = "number.inc";
+        const string destination = "number.inc";
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -31,7 +31,7 @@ public sealed class MaxProducerService : BackgroundService
 
                     //Thread.SpinWait(10000);
                 }
-            });
+            }, stoppingToken);
 
             //var p2 = Task.Run(() =>
             //{

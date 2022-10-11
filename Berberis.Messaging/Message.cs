@@ -2,7 +2,7 @@
 
 public readonly struct Message<TBody>
 {
-    public static readonly Message<TBody> Default = new Message<TBody>();
+    public static readonly Message<TBody> Default = new ();
 
     public long Id { get; }
     public long Timestamp { get; }

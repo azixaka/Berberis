@@ -70,7 +70,7 @@ public readonly struct Stats
     /// <summary>
     /// Processed to Dequeued messages ratio
     /// </summary>
-    public float ConflationRatioLongTerm { get => TotalProcessedMessages / (float)TotalDequeuedMessages; }
+    public float ConflationRatioLongTerm => TotalProcessedMessages / (float)TotalDequeuedMessages;
 
     /// <summary>
     /// Current queue length
@@ -80,39 +80,39 @@ public readonly struct Stats
         get
         {
             var len = TotalEnqueuedMessages - TotalDequeuedMessages;
-            return len < 0 ? 0 : len;
+            return Math.Max(0, len);//len < 0 ? 0 : len
         }
     }
 
     /// <summary>
     /// Latency to Response time (latency + service time) ratio
     /// </summary>
-    public float LatencyToResponseTimeRatioLongTerm { get => AvgLatencyTimeMsLongTerm / (AvgLatencyTimeMsLongTerm + AvgServiceTimeMsLongTerm); }
+    public float LatencyToResponseTimeRatioLongTerm => AvgLatencyTimeMsLongTerm / (AvgLatencyTimeMsLongTerm + AvgServiceTimeMsLongTerm);
 
     /// <summary>
     /// All time Dequeue rate, in msg/s
     /// </summary>
-    public float DequeueRateLongTerm { get => (TotalDequeuedMessages / _totalInterDequeueTimeMs) * 1000; }
+    public float DequeueRateLongTerm => (TotalDequeuedMessages / _totalInterDequeueTimeMs) * 1000;
 
     /// <summary>
     /// All time average latency time in ms
     /// </summary>
-    public float AvgLatencyTimeMsLongTerm { get => _totalLatencyTimeMs / TotalDequeuedMessages; }
+    public float AvgLatencyTimeMsLongTerm => _totalLatencyTimeMs / TotalDequeuedMessages;
 
     /// <summary>
     /// All time Process rate, in msg/s
     /// </summary>
-    public float ProcessRateLongTerm { get => (TotalProcessedMessages / _totalInterProcessTimeMs) * 1000; }
+    public float ProcessRateLongTerm => (TotalProcessedMessages / _totalInterProcessTimeMs) * 1000;
 
     /// <summary>
     /// All time average service time in ms
     /// </summary>
-    public float AvgServiceTimeMsLongTerm { get => _totalServiceTimeMs / TotalProcessedMessages; }
+    public float AvgServiceTimeMsLongTerm => _totalServiceTimeMs / TotalProcessedMessages;
 
     /// <summary>
     /// Estimated average active number of messages in the system as per Little's Law, at the processing point
     /// </summary>
-    public float EstimatedAvgActiveMessages { get => ProcessRateLongTerm * (AvgLatencyTimeMsLongTerm + AvgServiceTimeMsLongTerm) / 1000.0f; }
+    public float EstimatedAvgActiveMessages => ProcessRateLongTerm * (AvgLatencyTimeMsLongTerm + AvgServiceTimeMsLongTerm) / 1000.0f;
 
     public Stats(float intervalMs,
         float enqueueRateInterval,

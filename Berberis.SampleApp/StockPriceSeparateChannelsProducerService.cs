@@ -29,9 +29,9 @@ public sealed class StockPriceSeparateChannelsProducerService : BackgroundServic
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(1000);
+        await Task.Delay(1000, stoppingToken);
 
-        var destination = "stock.prices";
+        const string destination = "stock.prices";
 
         var random = new Random();
 
@@ -40,7 +40,7 @@ public sealed class StockPriceSeparateChannelsProducerService : BackgroundServic
             var index = random.Next(0, _symbols.Length);
             var price = new StockPrice(_symbols[index], random.NextDouble());
 
-            _ = _xBar.Publish($"{destination}.{price.Symbol}", price, 0, key: price.Symbol, store: true, from: nameof(StockPriceSeparateChannelsProducerService));
+            await _xBar.Publish($"{destination}.{price.Symbol}", price, 0, key: price.Symbol, store: true, from: nameof(StockPriceSeparateChannelsProducerService));
 
             await Task.Delay(random.Next(_minTickInterval, _maxTickInterval), stoppingToken);
         }

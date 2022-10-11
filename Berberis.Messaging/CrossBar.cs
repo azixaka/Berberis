@@ -27,7 +27,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         {
             if (value && _tracingEnabled != value)
             {
-                _ = GetOrAddChannel<MessageTrace>(TracingChannel, typeof(MessageTrace));
+                _ = GetOrAddChannel(TracingChannel, typeof(MessageTrace));
                 _tracingEnabled = value;
             }
         }
@@ -55,7 +55,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         var pubType = typeof(TBody);
 
-        var channel = GetOrAddChannel<TBody>(channelName, pubType);
+        var channel = GetOrAddChannel(channelName, pubType);
 
         // if channel was already there and its type matches the type passed with this call
         if (pubType == channel.BodyType)
@@ -175,7 +175,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         var subType = typeof(TBody);
 
-        var channel = GetOrAddChannel<TBody>(channelName, subType);
+        var channel = GetOrAddChannel(channelName, subType);
 
         // if channel was already there and its type matches the type passed with this call
         if (channel.BodyType == subType)
@@ -238,7 +238,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         //re: race condition described above - it could be that someone published|subscribed and created a new channel matching this very same pattern by now
         //but our new subscription isn't in the registry yet, so that update is missed.
-        //we will howerver FindMatchingChannels which will contain this channel and subscribe on it. If it has state, we'll fetch it too.
+        //we will however FindMatchingChannels which will contain this channel and subscribe on it. If it has state, we'll fetch it too.
 
         if (!wildcardSubscriptions.TryAdd(id, subscription))
         {
@@ -269,7 +269,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     {
                         _logger.LogInformation("Subscribed [{sub}] on channel [{channel}]", subscription.Name, pattern);
                     }
-                    else { } // can't happen due to atomic glocal subscription id increments
+                    else { } // can't happen due to atomic global subscription id increments
                 }
                 else // not the type Subscribe caller was expecting
                 {
@@ -310,19 +310,19 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
-    private bool MatchesChannelPattern(string channelName, string pattern)
+    private static bool MatchesChannelPattern(string channelName, string pattern)
     {
         int recursivePosition = pattern.IndexOf('>');
 
         if (recursivePosition > 0)
         {
-            var prefix = pattern.AsSpan().Slice(0, recursivePosition);
+            var prefix = pattern.AsSpan()[..recursivePosition];
             return channelName.AsSpan().StartsWith(prefix);
         }
 
         //todo: this is used only when subscribing/unsubscribing (rare) and creating a new channel (rare), so allocations don't matter in this case
         //it is however nice to change this to a span.slice by '.' to reduce allocations
-        //also two overloads could be added, that receives channelParts and another one receiving patternParts for ProcessWildcardSubscritptions and FindMatchingChannels accordingly
+        //also two overloads could be added, that receives channelParts and another one receiving patternParts for ProcessWildcardSubscriptions and FindMatchingChannels accordingly
 
         var channelParts = channelName.Split('.', StringSplitOptions.RemoveEmptyEntries);
         var patternParts = pattern.Split('.', StringSplitOptions.RemoveEmptyEntries);
@@ -339,7 +339,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return k == channelParts.Length;
     }
 
-    private static bool IsWildcardSubscription(string channelName) => channelName.Contains(">") || channelName.Contains("*");
+    private static bool IsWildcardSubscription(string channelName) => channelName.Contains('>') || channelName.Contains('*');
 
     private static bool IsSystemChannel(string channelName) => channelName.StartsWith("$");
 
@@ -437,45 +437,40 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     }).ToList();
     }
 
-    public IReadOnlyCollection<SubscriptionInfo>? GetChannelSubscriptions(string channelName)
+    public IReadOnlyCollection<SubscriptionInfo> GetChannelSubscriptions(string channelName)
     {
         if (_channels.TryGetValue(channelName, out var channel))
         {
             return channel.Value.Subscriptions
-                .Select(kvp =>
+                .Select(kvp => new SubscriptionInfo
                 {
-                    return new SubscriptionInfo
-                    {
-                        Name = kvp.Value.Name,
-                        SubscribedOn = kvp.Value.SubscribedOn,
-                        ConflationInterval = kvp.Value.ConflationInterval,
-                        Statistics = kvp.Value.Statistics
-                    };
+                    Name = kvp.Value.Name,
+                    SubscribedOn = kvp.Value.SubscribedOn,
+                    ConflationInterval = kvp.Value.ConflationInterval,
+                    Statistics = kvp.Value.Statistics
                 })
                 .ToList();
         }
 
-        return null;
+        return Array.Empty<SubscriptionInfo>();
     }
 
     public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
 
     public bool TryDeleteChannel(string channelName)
     {
-        if (_channels.TryRemove(channelName, out var channelProxy))
-        {
-            foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
-            {
-                if (!subscription.IsWildcard)
-                {
-                    subscription.TryDispose();
-                }
-            }
+        if (!_channels.TryRemove(channelName, out var channelProxy)) return false;
 
-            return true;
+        foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
+        {
+            if (!subscription.IsWildcard)
+            {
+                subscription.TryDispose();
+            }
         }
 
-        return false;
+        return true;
+
     }
 
     private Channel? GetSystemChannel(string channel)
@@ -488,11 +483,11 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return null;
     }
 
-    private Channel GetOrAddChannel<TBody>(string channel, Type bodyType)
+    private Channel GetOrAddChannel(string channelName, Type bodyType)
     {
         //ConcurrentDictionary's create factory can be called multiple times but only one result wins and gets added as a value for that key
         //By wrapping it with Lazy, we ensure we materialise it only once (.Value)
-        return _channels.GetOrAdd(channel,
+        return _channels.GetOrAdd(channelName,
             c => new Lazy<Channel>(() =>
             {
                 _logger.LogInformation("Channel [{channel}] for type [{bodyType}] is created.", c, bodyType);

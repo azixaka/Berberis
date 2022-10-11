@@ -15,9 +15,9 @@ public sealed class StockPriceConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(5000);
+        await Task.Delay(5000, stoppingToken);
 
-        var destination = "stock.prices";
+        const string destination = "stock.prices";
 
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
             msg =>

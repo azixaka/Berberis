@@ -14,7 +14,7 @@ public sealed class ChannelStatsTracker
     private long _lastInterPublishTime;
 
     private long _lastTicks;
-    private object _syncObj = new();
+    private readonly object _syncObj = new();
 
     internal void IncNumOfPublishedMessages()
     {
@@ -35,7 +35,7 @@ public sealed class ChannelStatsTracker
     {
         var ticks = GetTicks();
 
-        var totalMesssagesInc = Interlocked.Read(ref _totalMessages);
+        var totalMessagesInc = Interlocked.Read(ref _totalMessages);
 
         long intervalMessagesInc;
 
@@ -43,13 +43,13 @@ public sealed class ChannelStatsTracker
 
         lock (_syncObj)
         {
-            intervalMessagesInc = totalMesssagesInc - _lastMessages;
+            intervalMessagesInc = totalMessagesInc - _lastMessages;
 
             timePassed = (float)(ticks - _lastTicks) / Stopwatch.Frequency;
 
             if (reset)
             {
-                _lastMessages = totalMesssagesInc;
+                _lastMessages = totalMessagesInc;
                 _lastTicks = ticks;
             }
         }
@@ -59,6 +59,6 @@ public sealed class ChannelStatsTracker
         return new ChannelStats(timePassed * 1000,
             intervalMessagesInc / timePassed,
             totalInterProcessTimeMs,
-            totalMesssagesInc);
+            totalMessagesInc);
     }
 }
