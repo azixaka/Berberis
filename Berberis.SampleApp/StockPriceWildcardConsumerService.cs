@@ -15,7 +15,7 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(5000);
+       // await Task.Delay(5000);
 
         var destination = "stock.prices.>";
 
@@ -24,7 +24,7 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
             {
                 _logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, fetchState: true, TimeSpan.FromSeconds(1));
+            }, fetchState: true);
 
         await subscription.MessageLoop;
     }

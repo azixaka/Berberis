@@ -16,8 +16,14 @@ public sealed class StockPriceRecorderService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var destination = "stock.prices";
+        var destination = "stock.prices.>";
 
-        using var recording = _xBar.Record<StockPrice>(destination, "stock.prices", true, TimeSpan.FromSeconds(1), stoppingToken);
+        var serialiser = new StockPriceSerialiser();
+        using var fs = File.Open(@"c:\temp\trayport.stream", FileMode.OpenOrCreate,
+            FileAccess.ReadWrite, FileShare.Read);
+
+        using var recording = _xBar.Record(destination, fs, serialiser, false, TimeSpan.Zero, stoppingToken);
+        
+        await recording.MessageLoop;
     }
 }

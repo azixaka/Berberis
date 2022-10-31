@@ -6,7 +6,6 @@ namespace Berberis.Messaging;
 public sealed partial class Subscription<TBody> : ISubscription
 {
     private readonly ILogger<Subscription<TBody>> _logger;
-    private readonly string _channelName;
     private readonly Channel<Message<TBody>> _channel;
     private readonly Func<Message<TBody>, ValueTask> _handleFunc;
     private Action? _disposeAction;
@@ -15,7 +14,8 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly bool _isSystemChannel;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
-        long id, string? subscriptionName, string channelName, int? bufferCapacity, TimeSpan conflationIntervalInterval,
+        long id, string? subscriptionName, string channelName, int? bufferCapacity,
+        TimeSpan conflationIntervalInterval,
         SlowConsumerStrategy slowConsumerStrategy,
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
@@ -27,7 +27,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         MessageBodyType = typeof(TBody);
         IsWildcard = isWildcard;
 
-        _channelName = channelName;
+        ChannelName = channelName;
         ConflationInterval = conflationIntervalInterval;
         SlowConsumerStrategy = slowConsumerStrategy;
         _handleFunc = handleFunc;
@@ -65,6 +65,8 @@ public sealed partial class Subscription<TBody> : ISubscription
     public Type MessageBodyType { get; }
 
     public bool IsWildcard { get; init; }
+
+    public string ChannelName { get; init; }
 
     internal bool TryWrite(Message<TBody> message)
     {
@@ -119,7 +121,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                                          MessageKey = message.Key,
                                          CorrelationId = message.CorrelationId,
                                          From = message.From,
-                                         Channel = _channelName,
+                                         Channel = ChannelName,
                                          SubscriptionName = Name,
                                          Ticks = StatsTracker.GetTicks()
                                      });
@@ -247,7 +249,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                                  MessageKey = message.Key,
                                  CorrelationId = message.CorrelationId,
                                  From = message.From,
-                                 Channel = _channelName,
+                                 Channel = ChannelName,
                                  SubscriptionName = Name,
                                  Ticks = StatsTracker.GetTicks()
                              });
