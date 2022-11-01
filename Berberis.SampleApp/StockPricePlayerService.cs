@@ -22,10 +22,27 @@ public sealed class StockPricePlayerService : BackgroundService
 
         using var fs = File.Open(@"c:\temp\trayport.stream", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
-        var player = _xBar.Replay(destination, fs, serialiser, PlayMode.AsFastAsPossible, stoppingToken);
-
         await Task.Delay(2000);
 
-        await player.Play();
+        var player = _xBar.Replay(destination, fs, serialiser, PlayMode.AsFastAsPossible, stoppingToken);
+
+        await Task.Delay(50);
+
+        await player.Pause(stoppingToken);
+
+        await Task.Delay(1000);
+
+        player.Resume();
+
+        await Task.Delay(50);
+
+        await player.Pause(stoppingToken);
+
+        await Task.Delay(1000);
+
+        player.Resume();
+
+
+        await player.MessageLoop;
     }
 }

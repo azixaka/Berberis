@@ -2,6 +2,8 @@
 
 public interface IPlayer : IDisposable
 {
-    Task Play();
-    bool Pause();
+    ValueTask<bool> Pause(CancellationToken token);
+    bool Resume();
+
+    Task MessageLoop { get; }
 }

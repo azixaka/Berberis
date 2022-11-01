@@ -4,14 +4,25 @@ using System.IO.Pipelines;
 
 namespace Berberis.Messaging.Recorder;
 
-internal class MessageCodec
+internal enum MessageType : byte { ChannelUpdate = 0x10 }
+
+internal static class MessageCodec
 {
     public const int HeaderSize = 28;
 
     public static Span<byte> WriteChannelUpdateMessageHeader<TBody>(PipeWriter pipeWriter, SerializerVersion serializerVersion, ref Message<TBody> message)
     {
         // | 4 bytes | 2 bytes | 1 byte | 1 byte | 4 bytes | 8 bytes | 8 bytes | 4 bytes -> X bytes | 4 bytes -> Y bytes |
-        // | Total Message Bytes Length | Message Body Bytes Offset | Message Type | Message Type Version | 4x bytes Options | Message Id | Timestamp | Key | From |
+       
+        // | Total Message Bytes Length
+        // | Message Body Bytes Offset
+        // | Message Type
+        // | Message Type Version
+        // | 4x bytes Options
+        // | Message Id
+        // | Timestamp
+        // | Key
+        // | From |
 
         //_writer.Write(message header)
         var messageLengthSpan = pipeWriter.GetSpan(HeaderSize);

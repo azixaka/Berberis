@@ -12,7 +12,7 @@ public sealed class Recording<TBody> : IRecording
     private Stream _stream;
     private IMessageBodySerializer<TBody> _serialiser;
     private Pipe _pipe;
-    private bool _ready;
+    private volatile bool _ready;
 
     private Recording() { }
 
@@ -23,8 +23,9 @@ public sealed class Recording<TBody> : IRecording
         _serialiser = serialiser;
         _pipe = new Pipe();
 
-        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(token));
         _ready = true;
+
+        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(token));
     }
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
