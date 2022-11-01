@@ -1,4 +1,5 @@
 ﻿using Berberis.Messaging.Recorder;
+using System.Buffers;
 using System.Buffers.Binary;
 
 namespace Berberis.Recorder;
@@ -41,5 +42,10 @@ public sealed partial class Player<TBody>
         }
 
         public Span<byte> Body => _data.AsSpan().Slice(BodyOffset, Length - BodyOffset - 4);
+
+        public void Dispose()
+        { 
+            ArrayPool<byte>.Shared.Return(_data);
+        }
     }
 }

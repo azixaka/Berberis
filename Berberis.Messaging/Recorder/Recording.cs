@@ -59,7 +59,7 @@ public sealed class Recording<TBody> : IRecording
 
         if (result.Result.IsCompleted)
         {
-            //todo: "break" subscription
+            Dispose();
         }
 
         return ValueTask.CompletedTask;
@@ -70,7 +70,7 @@ public sealed class Recording<TBody> : IRecording
 
             if (flushResult.IsCompleted)
             {
-                //todo: "break" subscription
+                Dispose();
             }
         }
     }

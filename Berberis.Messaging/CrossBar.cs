@@ -41,14 +41,13 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
-    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
+    public ValueTask Publish<TBody>(string channelName, Message<TBody> message, bool store)
     {
         var ticks = StatsTracker.GetTicks();
-        var timestamp = DateTime.UtcNow;
 
         EnsureNotDisposed();
 
-        if (store && string.IsNullOrEmpty(key))
+        if (store && string.IsNullOrEmpty(message.Key))
         {
             throw new FailedPublishException($"Stored message must have key specified. Channel: {channelName}");
         }
@@ -60,17 +59,21 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         // if channel was already there and its type matches the type passed with this call
         if (pubType == channel.BodyType)
         {
-            var id = channel.NextMessageId();
-            var msg = new Message<TBody>(id, timestamp.ToBinary(), correlationId, key, ticks, from, body);
+            message.InceptionTicks = ticks;
+
+            if (message.Id < 0)
+            {
+                message.Id = channel.NextMessageId();
+            }
 
             if (MessageTracingEnabled)
             {
                 PublishSystem(TracingChannel,
                                 new MessageTrace
                                 {
-                                    MessageKey = key,
-                                    CorrelationId = correlationId,
-                                    From = from,
+                                    MessageKey = message.Key,
+                                    CorrelationId = message.CorrelationId,
+                                    From = message.From,
                                     Channel = channelName,
                                     Ticks = ticks
                                 });
@@ -81,12 +84,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 var messageStore = channel.GetMessageStore<TBody>();
                 if (messageStore != null)
                 {
-                    messageStore.Update(msg);
+                    messageStore.Update(message);
                 }
             }
 
-            channel.LastPublishedAt = timestamp;
-            channel.LastPublishedBy = from;
+            channel.LastPublishedAt = DateTime.FromBinary(message.Timestamp);
+            channel.LastPublishedBy = message.From;
 
             // walk through all the subscriptions on this channel...
             foreach (var (_, subObj) in channel.Subscriptions)
@@ -94,11 +97,11 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 if (subObj is Subscription<TBody> subscription) // Subscribe method ensures this will always cast successfully
                 {
                     // and send the body wrapped into a Message envelope with some metadata
-                    if (subscription.TryWrite(msg))
+                    if (subscription.TryWrite(message))
                     {
                         if (PublishLoggingEnabled)
                         {
-                            LogMessageSent(msg.Id, msg.CorrelationId, msg.Key ?? string.Empty, subscription.Name, channelName);
+                            LogMessageSent(message.Id, message.CorrelationId, message.Key ?? string.Empty, subscription.Name, channelName);
                         }
                     }
                     else
@@ -107,14 +110,14 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                         {
                             case SlowConsumerStrategy.SkipUpdates:
                                 _logger.LogWarning("Subscription [{sub}] SKIPPED message [{msgId}] | correlation [{corId}] on channel [{channel}]",
-                                    subscription.Name, msg.Id, msg.CorrelationId, channelName);
+                                    subscription.Name, message.Id, message.CorrelationId, channelName);
                                 break;
 
                             case SlowConsumerStrategy.FailSubscription:
                                 _ = subscription.TryFail(_failedSubscriptionException);
 
                                 _logger.LogWarning("Subscription [{sub}] FAILED to receive message [{msgId}] | correlation [{corId}] on channel [{channel}]",
-                                   subscription.Name, msg.Id, msg.CorrelationId, channelName);
+                                   subscription.Name, message.Id, message.CorrelationId, channelName);
                                 break;
                         }
                     }
@@ -132,6 +135,13 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
+    {
+        var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), correlationId, key, 0, from, body);
+
+        return Publish(channelName, message, store);
     }
 
     internal ValueTask PublishSystem<TBody>(string channelName, TBody body)

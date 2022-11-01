@@ -60,5 +60,4 @@ internal static class MessageCodec
         BinaryPrimitives.WriteInt32LittleEndian(pipeWriter.GetSpan(4), totalMessageLength);
         pipeWriter.Advance(4);
     }
-
 }

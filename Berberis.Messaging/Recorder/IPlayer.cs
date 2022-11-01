@@ -1,9 +1,8 @@
-﻿namespace Berberis.Recorder;
+﻿using Berberis.Messaging;
 
-public interface IPlayer : IDisposable
+namespace Berberis.Recorder;
+
+public interface IPlayer<TBody> : IDisposable
 {
-    ValueTask<bool> Pause(CancellationToken token);
-    bool Resume();
-
-    Task MessageLoop { get; }
+    IAsyncEnumerable<Message<TBody>> MessagesAsync(CancellationToken token);
 }

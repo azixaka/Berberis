@@ -2,70 +2,57 @@
 using Berberis.Messaging.Recorder;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 
 namespace Berberis.Recorder;
 
-public sealed partial class Player<TBody> : IPlayer
+public sealed partial class Player<TBody> : IPlayer<TBody>
 {
-    private ICrossBar _crossBar;
-    private string _channel;
     private Stream _stream;
     private IMessageBodySerializer<TBody> _serialiser;
     private PlayMode _playMode;
 
-    private int _isPaused = 0;
-    private SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
-
-    private Player() { }
-
-    private void Start(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
-                        PlayMode playMode, CancellationToken token)
+    private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode)
     {
-        _crossBar = crossBar;
-        _channel = channel;
         _stream = stream;
         _serialiser = serialiser;
         _playMode = playMode;
-
-        MessageLoop = Start(token);
     }
 
-    internal static IPlayer CreatePlayer(ICrossBar crossBar, string channel, Stream stream,
-        IMessageBodySerializer<TBody> serialiser, PlayMode playMode, CancellationToken token)
-    {
-        var player = new Player<TBody>();
-        player.Start(crossBar, channel, stream, serialiser, playMode, token);
-        return player;
-    }
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode) =>
+           new Player<TBody>(stream, serialiser, playMode);
 
-    private async Task Start(CancellationToken token)
+    public async IAsyncEnumerable<Message<TBody>> MessagesAsync([EnumeratorCancellation] CancellationToken token)
     {
-        await Task.Yield();
-
         while (!token.IsCancellationRequested)
         {
-            if (!_gate.Wait(0))
-                await _gate.WaitAsync(token);
+            var chunkResult = await GetNextChunk(token);
 
-            try
+            if (chunkResult.HasValue)
             {
-                var chunk = await GetNextChunk();
+                var chunk = chunkResult.Value;
 
-                if (!chunk.HasValue)
-                    break;
+                try
+                {
+                    var obj = _serialiser.Derialise(chunk.Body);
 
-                var obj = _serialiser.Derialise(chunk.Value.Body);
+                    var message = new Message<TBody>(chunk.Id, chunk.Timestamp, 0, chunk.Key, 0, chunk.From, obj);
 
-                await _crossBar.Publish($"{_channel}{chunk.Value.Key}", obj, chunk.Value.Key, false);
+                    yield return message;
+                }
+                finally
+                {
+                    chunk.Dispose();
+                }
             }
-            finally
-            { 
-                _gate.Release();
+            else
+            {
+                yield break;
             }
         }
     }
 
-    private async ValueTask<MessageChunk?> GetNextChunk()
+    private async ValueTask<MessageChunk?> GetNextChunk(CancellationToken token)
     {
         var headerBuffer = new byte[MessageCodec.HeaderSize];
         var rcvdCnt = await _stream.ReadAsync(headerBuffer);
@@ -121,32 +108,6 @@ public sealed partial class Player<TBody> : IPlayer
 
         return null;
     }
-
-    public async ValueTask<bool> Pause(CancellationToken token)
-    {
-        if (Interlocked.Exchange(ref _isPaused, 1) == 0)
-        {
-            if (!_gate.Wait(0))
-                await _gate.WaitAsync(token);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    public bool Resume()
-    {
-        if (Interlocked.Exchange(ref _isPaused, 0) == 1)
-        {
-            _gate.Release();
-            return true;
-        }
-
-        return false;
-    }
-
-    public Task MessageLoop { get; private set; }
 
     public void Dispose()
     {

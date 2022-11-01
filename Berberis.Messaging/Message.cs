@@ -1,14 +1,14 @@
 ﻿namespace Berberis.Messaging;
 
-public readonly struct Message<TBody>
+public struct Message<TBody>
 {
     public static readonly Message<TBody> Default = new Message<TBody>();
 
-    public long Id { get; }
+    public long Id { get; internal set; }
     public long Timestamp { get; }
     public long CorrelationId { get; }
     public string? Key { get; }
-    internal long InceptionTicks { get; }
+    internal long InceptionTicks { get; set; }
     public string? From { get; }
     public TBody Body { get; }
 

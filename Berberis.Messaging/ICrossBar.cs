@@ -6,6 +6,9 @@ public interface ICrossBar
 
     IReadOnlyCollection<CrossBar.SubscriptionInfo>? GetChannelSubscriptions(string channelName);
 
+    ValueTask Publish<TBody>(string channel, Message<TBody> message);
+    ValueTask Publish<TBody>(string channel, Message<TBody> message, bool store);
+
     ValueTask Publish<TBody>(string channel, TBody body);
     ValueTask Publish<TBody>(string channel, TBody body, string from);
     ValueTask Publish<TBody>(string channel, TBody body, string key, bool store);

@@ -2,6 +2,8 @@
 {
     partial class CrossBar
     {
+        public ValueTask Publish<TBody>(string channel, Message<TBody> message) => Publish(channel, message, false);
+
         public ValueTask Publish<TBody>(string channel, TBody body) => Publish(channel, body, 0, null, false, null);
         public ValueTask Publish<TBody>(string channel, TBody body, string from) => Publish(channel, body, 0, null, false, from);
         public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish(channel, body, correlationId, null, false, null);
