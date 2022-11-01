@@ -19,6 +19,9 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
         _playMode = playMode;
     }
 
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser) =>
+           Create(stream, serialiser, PlayMode.AsFastAsPossible);
+
     public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode) =>
            new Player<TBody>(stream, serialiser, playMode);
 

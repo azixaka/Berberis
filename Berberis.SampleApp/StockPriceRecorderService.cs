@@ -18,11 +18,9 @@ public sealed class StockPriceRecorderService : BackgroundService
     {
         var destination = "stock.prices.>";
 
-        var serialiser = new StockPriceSerialiser();
-        using var fs = File.Open(@"c:\temp\trayport.stream", FileMode.OpenOrCreate,
-            FileAccess.ReadWrite, FileShare.Read);
+        using var fs = File.OpenWrite(@"c:\temp\stock.prices3.stream");
 
-        using var recording = _xBar.Record(destination, fs, serialiser, false, TimeSpan.Zero, stoppingToken);
+        using var recording = _xBar.Record(destination, fs, new StockPriceSerialiser(), stoppingToken);
         
         await recording.MessageLoop;
     }

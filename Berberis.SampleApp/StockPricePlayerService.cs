@@ -18,11 +18,9 @@ public sealed class StockPricePlayerService : BackgroundService
     {
         var destination = "stock.prices.";
 
-        var serialiser = new StockPriceSerialiser();
+        using var fs = File.OpenRead(@"c:\temp\stock.prices.stream");
 
-        using var fs = File.Open(@"c:\temp\trayport.stream", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-
-        var player = Player<StockPrice>.Create(fs, serialiser, PlayMode.AsFastAsPossible);
+        var player = Player<StockPrice>.Create(fs, new StockPriceSerialiser());
 
         await foreach (var msg in player.MessagesAsync(stoppingToken))
         {

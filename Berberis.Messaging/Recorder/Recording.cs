@@ -14,6 +14,8 @@ public sealed class Recording<TBody> : IRecording
     private Pipe _pipe;
     private volatile bool _ready;
 
+    private readonly CancellationTokenSource _cts = new();
+
     private Recording() { }
 
     private void Start(ISubscription subscription, Stream stream, IMessageBodySerializer<TBody> serialiser, CancellationToken token)
@@ -25,7 +27,8 @@ public sealed class Recording<TBody> : IRecording
 
         _ready = true;
 
-        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(token));
+        var cts = token == default ? _cts : CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
+        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(_cts.Token));
     }
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
@@ -59,7 +62,7 @@ public sealed class Recording<TBody> : IRecording
 
         if (result.Result.IsCompleted)
         {
-            Dispose();
+            return ValueTask.CompletedTask;
         }
 
         return ValueTask.CompletedTask;
@@ -70,7 +73,7 @@ public sealed class Recording<TBody> : IRecording
 
             if (flushResult.IsCompleted)
             {
-                Dispose();
+                return;
             }
         }
     }
@@ -83,20 +86,24 @@ public sealed class Recording<TBody> : IRecording
 
         while (!token.IsCancellationRequested)
         {
-            ReadResult result = await pipeReader.ReadAsync(token);
-            ReadOnlySequence<byte> buffer = result.Buffer;
-
-            while (TryReadMessage(ref buffer, out ReadOnlySequence<byte> message))
+            try
             {
-                await ProcessMessage(message);
-            }
+                ReadResult result = await pipeReader.ReadAsync(token);
+                ReadOnlySequence<byte> buffer = result.Buffer;
 
-            pipeReader.AdvanceTo(buffer.Start, buffer.End);
+                while (TryReadMessage(ref buffer, out ReadOnlySequence<byte> message))
+                {
+                    await ProcessMessage(message);
+                }
 
-            if (result.IsCompleted)
-            {
-                break;
+                pipeReader.AdvanceTo(buffer.Start, buffer.End);
+
+                if (result.IsCompleted)
+                {
+                    break;
+                }
             }
+            catch (OperationCanceledException) {}
         }
 
         bool TryReadMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message)
@@ -125,7 +132,8 @@ public sealed class Recording<TBody> : IRecording
 
     public void Dispose()
     {
-        _subscription?.Dispose();
+        _cts.Cancel();
+        _subscription?.TryDispose();
         _pipe.Writer.Complete();
         _pipe.Reader.Complete();
     }
