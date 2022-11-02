@@ -15,8 +15,6 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-       // await Task.Delay(5000);
-
         var destination = "stock.prices.>";
 
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
@@ -28,16 +26,15 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
 
         await Task.Delay(2000);
 
-        //subscription.IsDetached = true;
-        //await Task.Delay(2000);
-        //subscription.IsDetached = false;
+        subscription.IsDetached = true;
+        await Task.Delay(2000);
+        subscription.IsDetached = false;
 
-        //await Task.Delay(2000);
-        
+        await Task.Delay(2000);
+
         subscription.IsProcessingSuspended = true;
         await Task.Delay(2000);
         subscription.IsProcessingSuspended = false;
-
 
         await subscription.MessageLoop;
     }

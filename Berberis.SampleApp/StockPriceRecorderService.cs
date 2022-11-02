@@ -18,10 +18,14 @@ public sealed class StockPriceRecorderService : BackgroundService
     {
         var destination = "stock.prices.>";
 
-        using var fs = File.OpenWrite(@"c:\temp\stock.prices3.stream");
+        using var fs = File.OpenWrite(@"c:\temp\stock.prices.stream");
 
         using var recording = _xBar.Record(destination, fs, new StockPriceSerialiser(), stoppingToken);
-        
+
+        await Task.Delay(5000);
+        // Dispose stops recording, we're effectively recording for 5 seconds here
+        recording.Dispose();
+
         await recording.MessageLoop;
     }
 }

@@ -12,6 +12,7 @@ public sealed class Recording<TBody> : IRecording
     private Stream _stream;
     private IMessageBodySerializer<TBody> _serialiser;
     private Pipe _pipe;
+    private readonly RecordingStatsReporter _recordingStatsReporter = new();
     private volatile bool _ready;
 
     private readonly CancellationTokenSource _cts = new();
@@ -28,8 +29,13 @@ public sealed class Recording<TBody> : IRecording
         _ready = true;
 
         var cts = token == default ? _cts : CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
-        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(_cts.Token));
+        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(cts.Token));
     }
+
+    //todo: change MessageLoop to do WaitAny and handle cases when externally someone disposes our underlying subscription, we should just cancel the PipeReaderLoop too
+    public ISubscription UnderlyingSubscription => _subscription;
+
+    public RecordingStats RecordingStats => _recordingStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
                                                bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
@@ -91,9 +97,16 @@ public sealed class Recording<TBody> : IRecording
                 ReadResult result = await pipeReader.ReadAsync(token);
                 ReadOnlySequence<byte> buffer = result.Buffer;
 
-                while (TryReadMessage(ref buffer, out ReadOnlySequence<byte> message))
+                while (true)
                 {
-                    await ProcessMessage(message);
+                    var ticks = _recordingStatsReporter.Start();
+                    var success = TryReadMessage(ref buffer, out ReadOnlySequence<byte> message);
+                    if (success)
+                    {
+                        await ProcessMessage(message);
+                        _recordingStatsReporter.Stop(ticks, message.Length);
+                    }
+                    else break;
                 }
 
                 pipeReader.AdvanceTo(buffer.Start, buffer.End);
@@ -103,13 +116,13 @@ public sealed class Recording<TBody> : IRecording
                     break;
                 }
             }
-            catch (OperationCanceledException) {}
+            catch (OperationCanceledException) { }
         }
 
         bool TryReadMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message)
         {
-            if (buffer.Length >= 4 
-                && BinaryPrimitives.TryReadInt32LittleEndian(buffer.FirstSpan, out var msgLen) 
+            if (buffer.Length >= 4
+                && BinaryPrimitives.TryReadInt32LittleEndian(buffer.FirstSpan, out var msgLen)
                 && buffer.Length >= msgLen)
             {
                 message = buffer.Slice(0, msgLen);
