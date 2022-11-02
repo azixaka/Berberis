@@ -18,7 +18,7 @@ public sealed class StockPricePlayerService : BackgroundService
     {
         var destination = "stock.prices.";
 
-        using var fs = File.OpenRead(@"c:\temp\stock.prices.stream");
+        using var fs = File.OpenRead(@"c:\temp\stock.prices3.stream");
 
         var player = Player<StockPrice>.Create(fs, new StockPriceSerialiser());
 

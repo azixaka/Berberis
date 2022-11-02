@@ -26,6 +26,19 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
                 return ValueTask.CompletedTask;
             }, fetchState: true);
 
+        await Task.Delay(2000);
+
+        //subscription.IsDetached = true;
+        //await Task.Delay(2000);
+        //subscription.IsDetached = false;
+
+        //await Task.Delay(2000);
+        
+        subscription.IsProcessingSuspended = true;
+        await Task.Delay(2000);
+        subscription.IsProcessingSuspended = false;
+
+
         await subscription.MessageLoop;
     }
 }

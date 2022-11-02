@@ -25,7 +25,7 @@ public sealed class StockPriceConsumerService : BackgroundService
                 _logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
             }, fetchState: true, TimeSpan.FromSeconds(1));
-
+        
         await subscription.MessageLoop;
     }
 }

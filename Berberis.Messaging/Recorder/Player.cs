@@ -37,7 +37,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
 
                 try
                 {
-                    var obj = _serialiser.Derialise(chunk.Body);
+                    var obj = _serialiser.Deserialize(chunk.Body);
 
                     var message = new Message<TBody>(chunk.Id, chunk.Timestamp, 0, chunk.Key, 0, chunk.From, obj);
 

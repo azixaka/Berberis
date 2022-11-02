@@ -94,7 +94,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             // walk through all the subscriptions on this channel...
             foreach (var (_, subObj) in channel.Subscriptions)
             {
-                if (subObj is Subscription<TBody> subscription) // Subscribe method ensures this will always cast successfully
+                if (!subObj.IsDetached && subObj is Subscription<TBody> subscription) // Subscribe method ensures this will always cast successfully
                 {
                     // and send the body wrapped into a Message envelope with some metadata
                     if (subscription.TryWrite(message))

@@ -37,6 +37,10 @@ public sealed partial class Player<TBody>
             get
             {
                 var keyLen = BinaryPrimitives.ReadInt32LittleEndian(_data.AsSpan().Slice(MessageCodec.HeaderSize));
+
+                if (keyLen == 0)
+                    return null;
+
                 return BinaryCodec.ReadString(_data.AsSpan().Slice(MessageCodec.HeaderSize + 4 + keyLen));
             }
         }

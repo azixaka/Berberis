@@ -10,5 +10,8 @@ public interface ISubscription : IDisposable
     Task MessageLoop { get; }
     Type MessageBodyType { get; }
 
+    bool IsDetached { get; set; }
+    bool IsProcessingSuspended { get; set; }
+
     StatsTracker Statistics { get; }
 }

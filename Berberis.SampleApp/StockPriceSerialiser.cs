@@ -9,7 +9,7 @@ public sealed class StockPriceSerialiser : IMessageBodySerializer<StockPrice>
 {
     public SerializerVersion Version { get; } = new SerializerVersion(1, 0);
 
-    public StockPrice Derialise(ReadOnlySpan<byte> data)
+    public StockPrice Deserialize(ReadOnlySpan<byte> data)
     {
         var len = BinaryPrimitives.ReadInt32LittleEndian(data);
 
@@ -25,7 +25,7 @@ public sealed class StockPriceSerialiser : IMessageBodySerializer<StockPrice>
         return new StockPrice(symbol, price);
     }
 
-    public void Serialise(StockPrice value, IBufferWriter<byte> writer)
+    public void Serialize(StockPrice value, IBufferWriter<byte> writer)
     {
         var lenLocation = writer.GetSpan(4);
         writer.Advance(4);

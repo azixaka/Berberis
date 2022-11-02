@@ -13,6 +13,9 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly CrossBar _crossBar;
     private readonly bool _isSystemChannel;
 
+    private int _isSuspended;
+    private TaskCompletionSource _resumeProcessingSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     internal Subscription(ILogger<Subscription<TBody>> logger,
         long id, string? subscriptionName, string channelName, int? bufferCapacity,
         TimeSpan conflationIntervalInterval,
@@ -67,6 +70,30 @@ public sealed partial class Subscription<TBody> : ISubscription
     public bool IsWildcard { get; init; }
 
     public string ChannelName { get; init; }
+
+    public bool IsDetached { get; set; }
+
+    public bool IsProcessingSuspended
+    {
+        get => Volatile.Read(ref _isSuspended) == 1;
+        set
+        {
+            // if we are trying to suspend processing and we atomically achieved that (set _isSuspended to 1 and it had 0 there previously)
+            if (value && Interlocked.Exchange(ref _isSuspended, 1) == 0)
+            {
+                // create a new TCS and set it to the _resumeProcessingSignal field while fetching what was there previously and signal it
+                // this is to prevent a potential deadlock if the message processing loop checked if it needs to suspend and then awaited
+                // on a TCS referenced by the _resumeProcessingSignal that will be replaced with a new one below
+                var prevSignal = Interlocked.Exchange(ref _resumeProcessingSignal, new(TaskCreationOptions.RunContinuationsAsynchronously));
+                prevSignal.TrySetResult();
+            }
+
+            if (!value && Interlocked.Exchange(ref _isSuspended, 0) == 1)
+            {
+                _resumeProcessingSignal.TrySetResult();
+            }
+        }
+    }
 
     internal bool TryWrite(Message<TBody> message)
     {
@@ -231,6 +258,9 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task ProcessMessage(Message<TBody> message, long latencyTicks)
     {
+        if (Volatile.Read(ref _isSuspended) == 1)
+            await _resumeProcessingSignal.Task;
+
         var beforeServiceTicks = StatsTracker.GetTicks();
 
         var task = _handleFunc(message);

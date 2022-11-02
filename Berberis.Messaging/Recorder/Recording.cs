@@ -51,7 +51,7 @@ public sealed class Recording<TBody> : IRecording
         var messageLengthSpan = MessageCodec.WriteChannelUpdateMessageHeader(pipeWriter, _serialiser.Version, ref message);
 
         // Write serialised messasge body
-        _serialiser.Serialise(message.Body, pipeWriter);
+        _serialiser.Serialize(message.Body, pipeWriter);
 
         MessageCodec.WriteMessageLengthPrefixAndSuffix(pipeWriter, messageLengthSpan);
 
@@ -108,7 +108,9 @@ public sealed class Recording<TBody> : IRecording
 
         bool TryReadMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message)
         {
-            if (buffer.Length >= 4 && BinaryPrimitives.TryReadInt32LittleEndian(buffer.FirstSpan, out var msgLen) && buffer.Length >= msgLen)
+            if (buffer.Length >= 4 
+                && BinaryPrimitives.TryReadInt32LittleEndian(buffer.FirstSpan, out var msgLen) 
+                && buffer.Length >= msgLen)
             {
                 message = buffer.Slice(0, msgLen);
                 buffer = buffer.Slice(msgLen);

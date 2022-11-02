@@ -5,6 +5,6 @@ namespace Berberis.Recorder;
 public interface IMessageBodySerializer<T>
 {
     SerializerVersion Version { get; }
-    void Serialise(T value, IBufferWriter<byte> writer);
-    T Derialise(ReadOnlySpan<byte> data);
+    void Serialize(T value, IBufferWriter<byte> writer);
+    T Deserialize(ReadOnlySpan<byte> data);
 }
