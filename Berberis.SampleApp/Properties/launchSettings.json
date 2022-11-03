@@ -9,7 +9,8 @@
       "launchUrl": "",
       "applicationUrl": "http://localhost:5248",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_SYSTEM_THREADING_POOLASYNCVALUETASKS": "True"
       }
     }
   }

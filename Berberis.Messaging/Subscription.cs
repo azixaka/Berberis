@@ -156,9 +156,43 @@ public sealed partial class Subscription<TBody> : ISubscription
 
                 if (localState == null || string.IsNullOrEmpty(message.Key))
                 {
-                    var task = ProcessMessage(message, latencyTicks);
+                    // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
+                    // The ProcessMessage code is called on every update (very often) OR in each conflation cycle (rare) OR when sending initial state (very rare)
+                    // By copying its content here (on every update case), we avoid massive async state machine allocations
+                    if (Volatile.Read(ref _isSuspended) == 1)
+                        await _resumeProcessingSignal.Task;
+
+                    var beforeServiceTicks = StatsTracker.GetTicks();
+
+                    var task = _handleFunc(message);
                     if (!task.IsCompleted)
                         await task;
+
+                    var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
+                    Statistics.IncNumOfProcessedMessages();
+
+                    if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
+                    {
+                        _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
+                                         new MessageTrace
+                                         {
+                                             OpType = OpType.SubscriptionProcessed,
+                                             MessageKey = message.Key,
+                                             CorrelationId = message.CorrelationId,
+                                             From = message.From,
+                                             Channel = ChannelName,
+                                             SubscriptionName = Name,
+                                             Ticks = StatsTracker.GetTicks()
+                                         });
+                    }
+
+                    if (_crossBar.PublishLoggingEnabled && _logger.IsEnabled(LogLevel.Trace))
+                    {
+                        LogStats(message.Id,
+                            StatsTracker.TicksToTimeMs(svcTimeTicks),
+                            StatsTracker.TicksToTimeMs(latencyTicks));
+                    }
+                    // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
                 }
                 else
                 {
