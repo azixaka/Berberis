@@ -48,7 +48,7 @@ public sealed class MaxConsumerService : BackgroundService
         await recording.MessageLoop;
 
         //using var subscription = _xBar.Subscribe<long>(destination,
-        //    msg => ProcessMessage(msg), fetchState: true, TimeSpan.FromSeconds(0.5), stoppingToken);
+        //    msg => ProcessMessage(msg), stoppingToken);
 
         //await subscription.MessageLoop;
     }

@@ -17,8 +17,15 @@ partial class CrossBar
 
         public string Name { get; init; }
 
+        public Channel()
+        {
+            Subscriptions = new ConcurrentDictionary<long, ISubscription>();
+            SubscriptionsEnumerator = new ThreadLocal<IEnumerator<KeyValuePair<long, ISubscription>>>(() => Subscriptions.GetEnumerator());
+        }
+
         public ConcurrentDictionary<long, ISubscription> Subscriptions { get; }
-            = new ConcurrentDictionary<long, ISubscription>();
+
+        public ThreadLocal<IEnumerator<KeyValuePair<long, ISubscription>>> SubscriptionsEnumerator { get; }
 
         public ChannelStatsTracker Statistics { get; } = new ChannelStatsTracker();
 
