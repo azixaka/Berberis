@@ -500,6 +500,18 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     private Channel GetOrAddChannel<TBody>(string channel, Type bodyType)
     {
+        // Publish on a channel happens very often while channel is created only once
+        // this line first prevent the Func<string, Lazy> from being created and allocated on every single access to the same channel
+        if (_channels.TryGetValue(channel, out var channelProxy))
+        {
+            return channelProxy.Value;
+        }
+
+        return CreateChannel<TBody>(channel, bodyType);
+    }
+
+    private Channel CreateChannel<TBody>(string channel, Type bodyType)
+    {
         //ConcurrentDictionary's create factory can be called multiple times but only one result wins and gets added as a value for that key
         //By wrapping it with Lazy, we ensure we materialise it only once (.Value)
         return _channels.GetOrAdd(channel,

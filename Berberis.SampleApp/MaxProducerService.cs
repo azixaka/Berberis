@@ -21,57 +21,57 @@ public sealed class MaxProducerService : BackgroundService
 
         var destination = "number.inc";
 
-        using var fs = File.OpenRead(@"c:\temp\numbers.stream");
+        //using var fs = File.OpenRead(@"c:\temp\numbers.stream");
 
-        var player = Player<long>.Create(fs, new NumberSerialiser());
+        //var player = Player<long>.Create(fs, new NumberSerialiser());
 
-        var reporter = Task.Run(async () =>
-        {
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                var rStats = player.Stats;
-
-                var statsText = $"MPS: {rStats.MessagesPerSecond:N0}; BPS: {rStats.BytesPerSecond:N0}; TB: {rStats.TotalBytes:N0}; SVC: {rStats.AvgServiceTime:N4};";
-
-                _logger.LogInformation("{statsText}", statsText);
-
-                await Task.Delay(1000);
-            }
-        });
-
-        await foreach (var msg in player.MessagesAsync(stoppingToken))
-        {
-            await _xBar.Publish(destination, msg);
-        }
-
-        //while (!stoppingToken.IsCancellationRequested)
+        //var reporter = Task.Run(async () =>
         //{
-        //    var p1 = Task.Run(() =>
+        //    while (!stoppingToken.IsCancellationRequested)
         //    {
-        //        int key = 0;
+        //        var rStats = player.Stats;
 
-        //        for (long i = 0; i < long.MaxValue; i++)
-        //        {
-        //            _xBar.Publish(destination, i);
+        //        var statsText = $"MPS: {rStats.MessagesPerSecond:N0}; BPS: {rStats.BytesPerSecond:N0}; TB: {rStats.TotalBytes:N0}; SVC: {rStats.AvgServiceTime:N4};";
 
-        //            //_xBar.Publish(destination, i, key, key: key.ToString(), store: true, from: "MaxProducerService");
-        //            //if (key++ > 100)
-        //            //    key = 0;
+        //        _logger.LogInformation("{statsText}", statsText);
 
-        //            Thread.SpinWait(1);
-        //        }
-        //    });
+        //        await Task.Delay(1000);
+        //    }
+        //});
 
-        //    //var p2 = Task.Run(() =>
-        //    //{
-        //    //    for (long i = 0; i < long.MaxValue; i++)
-        //    //    {
-        //    //        _xBar.Publish(destination, i);
-        //    //        //await Task.Delay(100);
-        //    //    }
-        //    //});
-
-        //    await Task.WhenAll(p1);
+        //await foreach (var msg in player.MessagesAsync(stoppingToken))
+        //{
+        //    await _xBar.Publish(destination, msg);
         //}
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var p1 = Task.Run(() =>
+            {
+                int key = 0;
+
+                for (long i = 0; i < long.MaxValue; i++)
+                {
+                    _xBar.Publish(destination, i);
+
+                    //_xBar.Publish(destination, i, key, key: key.ToString(), store: true, from: "MaxProducerService");
+                    //if (key++ > 100)
+                    //    key = 0;
+
+                    Thread.SpinWait(30);
+                }
+            });
+
+            //var p2 = Task.Run(() =>
+            //{
+            //    for (long i = 0; i < long.MaxValue; i++)
+            //    {
+            //        _xBar.Publish(destination, i);
+            //        //await Task.Delay(100);
+            //    }
+            //});
+
+            await Task.WhenAll(p1);
+        }
     }
 }

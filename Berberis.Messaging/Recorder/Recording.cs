@@ -103,7 +103,11 @@ public sealed class Recording<TBody> : IRecording
                     var success = TryReadMessage(ref buffer, out ReadOnlySequence<byte> message);
                     if (success)
                     {
-                        await ProcessMessage(message);
+                        foreach (var memory in message)
+                        {
+                            await _stream.WriteAsync(memory);
+                        }
+
                         _recorderStatsReporter.Stop(ticks, message.Length);
                     }
                     else break;
@@ -132,14 +136,6 @@ public sealed class Recording<TBody> : IRecording
 
             message = default;
             return false;
-        }
-
-        async Task ProcessMessage(ReadOnlySequence<byte> message)
-        {
-            foreach (var memory in message)
-            {
-                await _stream.WriteAsync(memory);
-            }
         }
     }
 
