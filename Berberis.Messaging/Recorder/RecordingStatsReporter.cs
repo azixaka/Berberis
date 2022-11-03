@@ -2,7 +2,7 @@
 
 namespace Berberis.Messaging.Recorder;
 
-public sealed class RecordingStatsReporter
+public sealed class RecorderStatsReporter
 {
     private long _totalMessages;
     private long _lastMessages;
@@ -26,7 +26,7 @@ public sealed class RecordingStatsReporter
         Interlocked.Add(ref _totalBytes, bytes);
     }
 
-    public RecordingStats GetStats()
+    public RecorderStats GetStats()
     {
         var totalMesssages = Interlocked.Read(ref _totalMessages);
         var totalServiceTicks = Interlocked.Read(ref _totalServiceTicks);
@@ -55,7 +55,7 @@ public sealed class RecordingStatsReporter
         var intervalSvcTimeMs = intervalSvcTicks / (float)Stopwatch.Frequency * 1000;
         var avgServiceTime = intervalMessages == 0 ? 0 : intervalSvcTimeMs / intervalMessages;
 
-        return new RecordingStats(timePassed * 1000,
+        return new RecorderStats(timePassed * 1000,
             intervalMessages / timePassed,
             totalMesssages,
             intervalBytes,

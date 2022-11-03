@@ -9,5 +9,5 @@ public interface IRecording : IDisposable
 
     ISubscription UnderlyingSubscription { get; }
 
-    RecordingStats RecordingStats { get; }
+    RecorderStats RecordingStats { get; }
 }

@@ -11,6 +11,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     private Stream _stream;
     private IMessageBodySerializer<TBody> _serialiser;
     private PlayMode _playMode;
+    private readonly RecorderStatsReporter _recorderStatsReporter = new();
 
     private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode)
     {
@@ -18,6 +19,8 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
         _serialiser = serialiser;
         _playMode = playMode;
     }
+
+    public RecorderStats Stats => _recorderStatsReporter.GetStats();
 
     public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser) =>
            Create(stream, serialiser, PlayMode.AsFastAsPossible);
@@ -29,6 +32,8 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     {
         while (!token.IsCancellationRequested)
         {
+            var ticks = _recorderStatsReporter.Start();
+
             var chunkResult = await GetNextChunk(token);
 
             if (chunkResult.HasValue)
@@ -40,6 +45,8 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                     var obj = _serialiser.Deserialize(chunk.Body);
 
                     var message = new Message<TBody>(chunk.Id, chunk.Timestamp, 0, chunk.Key, 0, chunk.From, obj);
+
+                    _recorderStatsReporter.Stop(ticks, chunk.Length);
 
                     yield return message;
                 }

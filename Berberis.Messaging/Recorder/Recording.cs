@@ -12,7 +12,7 @@ public sealed class Recording<TBody> : IRecording
     private Stream _stream;
     private IMessageBodySerializer<TBody> _serialiser;
     private Pipe _pipe;
-    private readonly RecordingStatsReporter _recordingStatsReporter = new();
+    private readonly RecorderStatsReporter _recorderStatsReporter = new();
     private volatile bool _ready;
 
     private readonly CancellationTokenSource _cts = new();
@@ -35,7 +35,7 @@ public sealed class Recording<TBody> : IRecording
     //todo: change MessageLoop to do WaitAny and handle cases when externally someone disposes our underlying subscription, we should just cancel the PipeReaderLoop too
     public ISubscription UnderlyingSubscription => _subscription;
 
-    public RecordingStats RecordingStats => _recordingStatsReporter.GetStats();
+    public RecorderStats RecordingStats => _recorderStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
                                                bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
@@ -99,12 +99,12 @@ public sealed class Recording<TBody> : IRecording
 
                 while (true)
                 {
-                    var ticks = _recordingStatsReporter.Start();
+                    var ticks = _recorderStatsReporter.Start();
                     var success = TryReadMessage(ref buffer, out ReadOnlySequence<byte> message);
                     if (success)
                     {
                         await ProcessMessage(message);
-                        _recordingStatsReporter.Stop(ticks, message.Length);
+                        _recorderStatsReporter.Stop(ticks, message.Length);
                     }
                     else break;
                 }

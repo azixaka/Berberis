@@ -1,6 +1,6 @@
 ﻿namespace Berberis.Messaging.Recorder;
 
-public readonly struct RecordingStats
+public readonly struct RecorderStats
 {
     /// <summary>
     /// Interval window in milliseconds for which these calculation were made
@@ -32,7 +32,7 @@ public readonly struct RecordingStats
     /// </summary>
     public readonly float AvgServiceTime;
 
-    public RecordingStats(float intervalMs, float messagesPerSecond, float totalMessages, float bytesPerSecond, float totalBytes, float avgServiceTime)
+    public RecorderStats(float intervalMs, float messagesPerSecond, float totalMessages, float bytesPerSecond, float totalBytes, float avgServiceTime)
     {
         IntervalMs = intervalMs;
         MessagesPerSecond = messagesPerSecond;
