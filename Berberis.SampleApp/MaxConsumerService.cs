@@ -70,8 +70,10 @@ public sealed class MaxConsumerService : BackgroundService
         }
     }
 
-    private async ValueTask ProcessMessage(Message<long> message)
+    private  ValueTask ProcessMessage(Message<long> message)
     {
+        return ValueTask.CompletedTask;
+
         //using (_logger.BeginScope(message.CorrelationId))
         //{
         //    _logger.LogInformation("In process");

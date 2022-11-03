@@ -132,7 +132,7 @@ public sealed partial class Subscription<TBody> : ISubscription
             flusherTask = FlusherLoop();
         }
 
-        while (await _channel.Reader.WaitToReadAsync(token))
+        while (await _channel.Reader.WaitToReadAsync())
         {
             while (_channel.Reader.TryRead(out var message))
             {

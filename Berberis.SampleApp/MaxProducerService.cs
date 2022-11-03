@@ -58,7 +58,7 @@ public sealed class MaxProducerService : BackgroundService
                     //if (key++ > 100)
                     //    key = 0;
 
-                    Thread.SpinWait(1);
+                   // Thread.SpinWait(1);
                 }
             });
 
