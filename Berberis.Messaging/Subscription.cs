@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 namespace Berberis.Messaging;
@@ -156,9 +157,9 @@ public sealed partial class Subscription<TBody> : ISubscription
 
                 if (localState == null || string.IsNullOrEmpty(message.Key))
                 {
-                    // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
-                    // The ProcessMessage code is called on every update (very often) OR in each conflation cycle (rare) OR when sending initial state (very rare)
-                    // By copying its content here (on every update case), we avoid massive async state machine allocations
+                    // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD body except the PostProcessMessage call HERE
+                    // The ProcessMessage code is called on every update (very often) OR in each conflation cycle (less often) OR when sending initial state (once for all the data)
+                    // By copying its content here, we avoid massive async state machine allocations
                     if (Volatile.Read(ref _isSuspended) == 1)
                         await _resumeProcessingSignal.Task;
 
@@ -167,32 +168,9 @@ public sealed partial class Subscription<TBody> : ISubscription
                     var task = _handleFunc(message);
                     if (!task.IsCompleted)
                         await task;
-
-                    var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
-                    Statistics.IncNumOfProcessedMessages();
-
-                    if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
-                    {
-                        _ = _crossBar.PublishSystem(_crossBar.TracingChannel,
-                                         new MessageTrace
-                                         {
-                                             OpType = OpType.SubscriptionProcessed,
-                                             MessageKey = message.Key,
-                                             CorrelationId = message.CorrelationId,
-                                             From = message.From,
-                                             Channel = ChannelName,
-                                             SubscriptionName = Name,
-                                             Ticks = StatsTracker.GetTicks()
-                                         });
-                    }
-
-                    if (_crossBar.PublishLoggingEnabled && _logger.IsEnabled(LogLevel.Trace))
-                    {
-                        LogStats(message.Id,
-                            StatsTracker.TicksToTimeMs(svcTimeTicks),
-                            StatsTracker.TicksToTimeMs(latencyTicks));
-                    }
                     // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
+
+                    PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
                 }
                 else
                 {
@@ -301,6 +279,12 @@ public sealed partial class Subscription<TBody> : ISubscription
         if (!task.IsCompleted)
             await task;
 
+        PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void PostProcessMessage(ref Message<TBody> message, long beforeServiceTicks, long latencyTicks)
+    {
         var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
         Statistics.IncNumOfProcessedMessages();
 

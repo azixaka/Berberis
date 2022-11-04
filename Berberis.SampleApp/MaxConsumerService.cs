@@ -24,6 +24,7 @@ public sealed class MaxConsumerService : BackgroundService
         var destination = "number.inc";
 
         using var fs = File.OpenWrite(@"c:\temp\numbers.stream");
+        //using var bs = new BufferedStream(fs, 4 * 1024 * 1024);
 
         using var recording = _xBar.Record(destination, fs, new NumberSerialiser(), stoppingToken);
 

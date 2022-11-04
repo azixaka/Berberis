@@ -58,7 +58,7 @@ public sealed class RecorderStatsReporter
         return new RecorderStats(timePassed * 1000,
             intervalMessages / timePassed,
             totalMesssages,
-            intervalBytes,
+            intervalBytes / timePassed,
             totalBytes,
             avgServiceTime);
     }
