@@ -1,4 +1,5 @@
-﻿using Berberis.Messaging.Recorder;
+﻿using Berberis.Messaging;
+using Berberis.Messaging.Recorder;
 using System.Buffers;
 using System.Buffers.Binary;
 

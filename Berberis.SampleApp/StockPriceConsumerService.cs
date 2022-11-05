@@ -1,4 +1,5 @@
 ﻿using Berberis.Messaging;
+using System.Runtime.InteropServices;
 
 namespace Berberis.SampleApp;
 
@@ -22,10 +23,22 @@ public sealed class StockPriceConsumerService : BackgroundService
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
             msg =>
             {
-                _logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
+                _logger.LogInformation("Got Message {msgId} {type}. [{symbol}={price:N4}]", msg.Id, msg.MessageType.ToString(), msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
             }, fetchState: true, TimeSpan.FromSeconds(1));
-        
+
+        await Task.Delay(5000);
+
+        var snapshot = _xBar.GetChannelState<StockPrice>(destination).ToList();
+
+        _xBar.ResetChannel<StockPrice>(destination);
+
+        var snapshot2 = _xBar.GetChannelState<StockPrice>(destination).ToList();
+
+        //if (_xBar.TryDeleteMessage<StockPrice>(destination, "amzn", out var deletedMsg)) 
+        //{
+        //}
+
         await subscription.MessageLoop;
     }
 }

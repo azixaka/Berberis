@@ -32,7 +32,7 @@ public interface ICrossBar
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);
     bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
-    bool ResetStore<TBody>(string channelName);
+    void ResetChannel<TBody>(string channelName);
     bool TryDeleteChannel(string channelName);
 
     long GetNextCorrelationId();

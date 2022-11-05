@@ -24,7 +24,7 @@ public sealed class StockPriceSeparateChannelsProducerService : BackgroundServic
                     };
 
         _minTickInterval = 1;
-        _maxTickInterval = 10;
+        _maxTickInterval = 100;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

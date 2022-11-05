@@ -143,7 +143,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
     {
-        var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), correlationId, key, 0, from, body);
+        var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), MessageType.ChannelUpdate, correlationId, key, 0, from, body);
 
         return Publish(channelName, message, store);
     }
@@ -153,7 +153,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var channel = GetSystemChannel(channelName);
         if (channel != null)
         {
-            var msg = new Message<TBody>(0, 0, 0, null, 0, null, body);
+            var msg = new Message<TBody>(0, 0, MessageType.SystemTrace, 0, null, 0, null, body);
 
             foreach (var (_, subObj) in channel.Subscriptions)
             {
@@ -412,26 +412,30 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         if (messageStore != null)
         {
-            return messageStore.TryDelete(key, out message);
-            //todo: broadcast deletion
+            var deleted = messageStore.TryDelete(key, out message);
+            if (deleted)
+            {
+                message.Id = -1;
+                message.MessageType = MessageType.ChannelDelete;
+                Publish(channelName, message);
+                return true;
+            }
         }
 
-        message = Message<TBody>.Default;
+        message = default;
         return false;
     }
 
-    public bool ResetStore<TBody>(string channelName)
+    public void ResetChannel<TBody>(string channelName)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
 
         if (messageStore != null)
         {
             messageStore.Reset();
-            return true;
-            //todo: broadcast reset
         }
 
-        return false;
+        Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelReset, 0, null, 0, null, default));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

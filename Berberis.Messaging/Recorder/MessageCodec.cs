@@ -4,8 +4,6 @@ using System.IO.Pipelines;
 
 namespace Berberis.Messaging.Recorder;
 
-internal enum MessageType : byte { ChannelUpdate = 0x10 }
-
 internal static class MessageCodec
 {
     public const int HeaderSize = 28;
@@ -29,7 +27,7 @@ internal static class MessageCodec
         var bodyOffsetSpan = messageLengthSpan.Slice(4);
 
         var writeSpan = bodyOffsetSpan.Slice(2);
-        writeSpan[0] = 0x10; // MessageType = ChannelUpdate
+        writeSpan[0] = (byte) message.MessageType;
         writeSpan[1] = 1; // Message Version
         writeSpan[2] = 0; // Options 1
         writeSpan[3] = 0; // Options 2
