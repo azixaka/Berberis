@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace Berberis.Messaging;
 
@@ -10,9 +11,10 @@ partial class CrossBar
     {
         private ConcurrentDictionary<string, Message<TBody>> _state { get; } = new();
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(Message<TBody> message)
         {
-            _state[message.Key] = message;
+            _state[message.Key!] = message;
         }
 
         public IEnumerable<Message<TBody>> GetState()
@@ -23,11 +25,13 @@ partial class CrossBar
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryDelete(string key, out Message<TBody> message)
         {
             return _state.TryRemove(key, out message);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Reset()
         {
             _state.Clear();

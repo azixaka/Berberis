@@ -81,11 +81,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
             if (store)
             {
-                var messageStore = channel.GetMessageStore<TBody>();
-                if (messageStore != null)
-                {
-                    messageStore.Update(message);
-                }
+                var messageStore = channel.GetOrCreateMessageStore<TBody>();
+                messageStore.Update(message);
             }
 
             channel.LastPublishedAt = DateTime.FromBinary(message.Timestamp);
@@ -201,11 +198,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
             if (fetchState)
             {
-                var messageStore = channel.GetMessageStore<TBody>();
-                if (messageStore != null)
-                {
-                    stateFactory = messageStore.GetState;
-                }
+                var messageStore = channel.GetOrCreateMessageStore<TBody>();
+                stateFactory = messageStore.GetState;
             }
 
             //create, register and return subscription
@@ -275,11 +269,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 {
                     if (fetchState)
                     {
-                        var messageStore = channel.GetMessageStore<TBody>();
-                        if (messageStore != null)
-                        {
-                            stateFactories.Add(messageStore.GetState);
-                        }
+                        var messageStore = channel.GetOrCreateMessageStore<TBody>();
+                        stateFactories.Add(messageStore.GetState);
                     }
 
                     if (channel.Subscriptions.TryAdd(id, subscription))
@@ -404,17 +395,25 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
+    public IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName)
+    {
+        var messageStore = GetChannelStore<TBody>(channelName);
+        if (messageStore != null)
+        {
+            return messageStore.GetState();
+        }
+
+        return Array.Empty<Message<TBody>>();
+    }
+
     public bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message)
     {
-        if (_channels.TryGetValue(channelName, out var channel))
-        {
-            var messageStore = channel.Value.GetMessageStore<TBody>();
+        var messageStore = GetChannelStore<TBody>(channelName);
 
-            if (messageStore != null)
-            {
-                return messageStore.TryDelete(key, out message);
-                //todo: broadcast deletion
-            }
+        if (messageStore != null)
+        {
+            return messageStore.TryDelete(key, out message);
+            //todo: broadcast deletion
         }
 
         message = Message<TBody>.Default;
@@ -423,19 +422,27 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     public bool ResetStore<TBody>(string channelName)
     {
-        if (_channels.TryGetValue(channelName, out var channel))
-        {
-            var messageStore = channel.Value.GetMessageStore<TBody>();
+        var messageStore = GetChannelStore<TBody>(channelName);
 
-            if (messageStore != null)
-            {
-                messageStore.Reset();
-                return true;
-                //todo: broadcast reset
-            }
+        if (messageStore != null)
+        {
+            messageStore.Reset();
+            return true;
+            //todo: broadcast reset
         }
 
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private MessageStore<TBody>? GetChannelStore<TBody>(string channelName)
+    {
+        if (_channels.TryGetValue(channelName, out var channel))
+        {
+            return channel.Value.GetMessageStore<TBody>();
+        }
+
+        return null;
     }
 
     public IReadOnlyList<ChannelInfo> GetChannels()
@@ -485,6 +492,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             {
                 if (!subscription.IsWildcard)
                 {
+                    //todo: broadcast channel deletion prior to disposing? but then how do we know it's been processed and not stuck in its queue
                     subscription.TryDispose();
                 }
             }

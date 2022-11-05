@@ -17,7 +17,7 @@ public sealed class MaxProducerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(3000);
+        //await Task.Delay(3000);
 
         var destination = "number.inc";
 

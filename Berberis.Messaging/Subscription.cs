@@ -127,9 +127,9 @@ public sealed partial class Subscription<TBody> : ISubscription
 
         if (ConflationInterval > TimeSpan.Zero)
         {
-            localState = new Dictionary<string, Message<TBody>>();
-            localStateBacking = new Dictionary<string, Message<TBody>>();
-            semaphore = new SemaphoreSlim(1, 1);
+            localState = new();
+            localStateBacking = new();
+            semaphore = new(1, 1);
             flusherTask = FlusherLoop();
         }
 

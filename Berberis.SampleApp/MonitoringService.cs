@@ -63,7 +63,7 @@ public sealed class MonitoringService : BackgroundService
                 }
             }
 
-            await Task.Delay(3000);
+            await Task.Delay(1000);
         }
 
         await tracingSub?.MessageLoop;

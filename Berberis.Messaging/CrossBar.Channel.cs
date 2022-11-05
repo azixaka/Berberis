@@ -33,17 +33,20 @@ partial class CrossBar
 
         public string? LastPublishedBy { get; internal set; }
 
-        public MessageStore<TBody> GetMessageStore<TBody>()
+        public MessageStore<TBody> GetOrCreateMessageStore<TBody>()
         {
             if (Volatile.Read(ref _messageStoreInitialised))
             {
-                return _messageStore as MessageStore<TBody>;
+                return (_messageStore as MessageStore<TBody>)!;
             }
 
+            //todo: address a race condition here in a maximum performance way!
             var store = new MessageStore<TBody>();
             _messageStore = store;
             Volatile.Write(ref _messageStoreInitialised, true);
             return store;
         }
+
+        public MessageStore<TBody>? GetMessageStore<TBody>() => _messageStore as MessageStore<TBody>;
     }
 }
