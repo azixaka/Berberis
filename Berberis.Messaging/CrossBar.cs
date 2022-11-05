@@ -406,23 +406,32 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return Array.Empty<Message<TBody>>();
     }
 
-    public bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message)
+    public bool TryGetMessage<TBody>(string channelName, string key, out Message<TBody> message)
+    {
+        var messageStore = GetChannelStore<TBody>(channelName);
+        if (messageStore != null)
+        {
+            return messageStore.TryGet(key, out message);
+        }
+
+        message = default;
+        return false;
+    }
+
+    public bool TryDeleteMessage<TBody>(string channelName, string key)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
 
         if (messageStore != null)
         {
-            var deleted = messageStore.TryDelete(key, out message);
+            var deleted = messageStore.TryDelete(key);
             if (deleted)
             {
-                message.Id = -1;
-                message.MessageType = MessageType.ChannelDelete;
-                Publish(channelName, message);
+                Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelDelete, 0, null, 0, null, default));
                 return true;
             }
         }
 
-        message = default;
         return false;
     }
 
@@ -436,6 +445,25 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
 
         Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelReset, 0, null, 0, null, default));
+    }   
+
+    public bool TryDeleteChannel(string channelName)
+    {
+        if (_channels.TryRemove(channelName, out var channelProxy))
+        {
+            foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
+            {
+                if (!subscription.IsWildcard)
+                {
+                    //todo: broadcast channel deletion prior to disposing? but then how do we know it's been processed and not stuck in its queue
+                    subscription.TryDispose();
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -486,26 +514,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return null;
     }
 
-    public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
-
-    public bool TryDeleteChannel(string channelName)
-    {
-        if (_channels.TryRemove(channelName, out var channelProxy))
-        {
-            foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
-            {
-                if (!subscription.IsWildcard)
-                {
-                    //todo: broadcast channel deletion prior to disposing? but then how do we know it's been processed and not stuck in its queue
-                    subscription.TryDispose();
-                }
-            }
-
-            return true;
-        }
-
-        return false;
-    }
+    public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);   
 
     private Channel? GetSystemChannel(string channel)
     {
@@ -602,5 +611,5 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     [LoggerMessage(0, LogLevel.Trace, "Sent message [{messageId}] | correlation [{corId}] | key [{key}] to subscription [{subscriptionName}] on channel [{channel}]")]
-    partial void LogMessageSent(long messageId, long corId, string key, string subscriptionName, string channel);
+    partial void LogMessageSent(long messageId, long corId, string key, string subscriptionName, string channel);  
 }

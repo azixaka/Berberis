@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace Berberis.Messaging;
 
@@ -9,32 +8,56 @@ partial class CrossBar
 
     internal sealed class MessageStore<TBody> : IMessageStore
     {
-        private ConcurrentDictionary<string, Message<TBody>> _state { get; } = new();
+        private Dictionary<string, Message<TBody>> _state { get; } = new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(Message<TBody> message)
         {
-            _state[message.Key!] = message;
+            lock (_state)
+            {
+                _state[message.Key!] = message;
+            }
         }
 
         public IEnumerable<Message<TBody>> GetState()
         {
-            foreach (var (_, message) in _state)
+            List<Message<TBody>> state;
+
+            lock (_state)
             {
-                yield return message;
+                state = new List<Message<TBody>>(_state.Values);
+            }
+
+            return state;
+        }
+
+        public bool TryGet(string key, out Message<TBody> message)
+        {
+            lock (_state)
+            {
+                return _state.TryGetValue(key, out message);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryDelete(string key, out Message<TBody> message)
+        internal bool TryDelete(string key)
         {
-            return _state.TryRemove(key, out message);
+            bool removed = false;
+            lock (_state)
+            {
+                removed = _state.Remove(key);
+            }
+
+            return removed;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Reset()
         {
-            _state.Clear();
+            lock (_state)
+            {
+                _state.Clear();
+            }
         }
     }
 }

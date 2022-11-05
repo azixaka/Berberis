@@ -9,7 +9,7 @@ public struct Message<TBody>
     public string? Key { get; }
     internal long InceptionTicks { get; set; }
     public string? From { get; }
-    public TBody Body { get; }
+    public TBody? Body { get; }
 
     public Message(long id, long timestamp, MessageType messageType, long correlationId, string? key, long inceptionTicks, string? from, TBody body)
     {

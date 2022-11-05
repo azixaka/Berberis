@@ -31,7 +31,8 @@ public interface ICrossBar
        CancellationToken token = default);
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);
-    bool TryDeleteMessage<TBody>(string channelName, string key, out Message<TBody> message);
+    bool TryGetMessage<TBody>(string channelName, string key, out Message<TBody> message);
+    bool TryDeleteMessage<TBody>(string channelName, string key);
     void ResetChannel<TBody>(string channelName);
     bool TryDeleteChannel(string channelName);
 

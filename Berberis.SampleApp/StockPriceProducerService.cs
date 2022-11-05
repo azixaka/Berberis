@@ -23,8 +23,8 @@ public sealed class StockPriceProducerService : BackgroundService
                         "se", "shop", "u", "pypl", "zi", "zs"
                     };
 
-        _minTickInterval = 10;
-        _maxTickInterval = 100;
+        _minTickInterval = 0;
+        _maxTickInterval = 1;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

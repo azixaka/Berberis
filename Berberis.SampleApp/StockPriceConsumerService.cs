@@ -16,7 +16,7 @@ public sealed class StockPriceConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(5000);
+        //await Task.Delay(5000);
 
         var destination = "stock.prices";
 
@@ -25,15 +25,15 @@ public sealed class StockPriceConsumerService : BackgroundService
             {
                 _logger.LogInformation("Got Message {msgId} {type}. [{symbol}={price:N4}]", msg.Id, msg.MessageType.ToString(), msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, fetchState: true, TimeSpan.FromSeconds(1));
+            }, fetchState: true);
 
-        await Task.Delay(5000);
+        //await Task.Delay(5000);
 
-        var snapshot = _xBar.GetChannelState<StockPrice>(destination).ToList();
+        //var snapshot = _xBar.GetChannelState<StockPrice>(destination).ToList();
 
-        _xBar.ResetChannel<StockPrice>(destination);
+        //_xBar.ResetChannel<StockPrice>(destination);
 
-        var snapshot2 = _xBar.GetChannelState<StockPrice>(destination).ToList();
+        //var snapshot2 = _xBar.GetChannelState<StockPrice>(destination).ToList();
 
         //if (_xBar.TryDeleteMessage<StockPrice>(destination, "amzn", out var deletedMsg)) 
         //{
