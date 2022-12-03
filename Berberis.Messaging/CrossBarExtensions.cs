@@ -39,7 +39,11 @@ public static class CrossBarExtensions
                     writer.WriteStartObject();
                     writer.WriteString(useMnemonics ? "Nm" : "Name", subscription.Name);
                     writer.WriteString(useMnemonics ? "SubOn" : "SubscribedOn", subscription.SubscribedOn.ToString(DateTimeFormat));
-                    writer.WriteString(useMnemonics ? "CfIn" : "ConflationInterval", subscription.ConflationInterval.ToString());
+
+                    if (subscription.ConflationInterval == TimeSpan.Zero)
+                        writer.WriteNull(useMnemonics ? "CfIn" : "ConflationInterval");
+                    else
+                        writer.WriteString(useMnemonics ? "CfIn" : "ConflationInterval", subscription.ConflationInterval.ToString());
 
                     var stats = subscription.Statistics.GetStats();
 

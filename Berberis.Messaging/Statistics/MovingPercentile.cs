@@ -7,6 +7,7 @@ public sealed class MovingPercentile
 
     private readonly float _alpha;
     private float _delta;
+    private readonly float _deltaInit;
 
     public float PercentileValue { get; private set; }
 
@@ -14,7 +15,7 @@ public sealed class MovingPercentile
     {
         _percentile = percentile;
         _alpha = alpha;
-        _delta = delta;
+        _delta = _deltaInit = delta;
     }
 
     public void NewSample(float value)
@@ -46,6 +47,8 @@ public sealed class MovingPercentile
 
     public void Reset()
     {
+        PercentileValue = 0;
+        _delta = _deltaInit;
         _initialised = false;
     }
 }

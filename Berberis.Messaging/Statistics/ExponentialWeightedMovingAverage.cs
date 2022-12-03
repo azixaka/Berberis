@@ -28,4 +28,10 @@ public sealed class ExponentialWeightedMovingAverage
             _initialised = true;
         }
     }
+
+    public void Reset()
+    {
+        AverageValue = 0;
+        _initialised = false;
+    }
 }

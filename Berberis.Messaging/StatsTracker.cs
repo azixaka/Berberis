@@ -92,6 +92,9 @@ public sealed class StatsTracker
 
                 _lastTicks = ticks;
 
+                _latencyEwma.Reset();
+                _svcTimeEwma.Reset();
+
                 if (_includeP90Stats)
                 {
                     _latencyPercentile!.Reset();
