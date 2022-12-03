@@ -12,6 +12,8 @@ public static class CrossBarExtensions
         writer.WritePropertyName(useMnemonics ? "Chs" : "Channels");
         writer.WriteStartArray();
 
+        var visitedSubs = new HashSet<string>();
+
         foreach (var channel in crossBar.GetChannels())
         {
             writer.WriteStartObject();
@@ -30,31 +32,36 @@ public static class CrossBarExtensions
 
             foreach (var subscription in crossBar.GetChannelSubscriptions(channel.Name))
             {
-                writer.WriteStartObject();
-                writer.WriteString(useMnemonics ? "Nm" : "Name", subscription.Name);
-                writer.WriteString(useMnemonics ? "SubOn" : "SubscribedOn", subscription.SubscribedOn.ToString(DateTimeFormat));
-                writer.WriteString(useMnemonics ? "CfIn" : "ConflationInterval", subscription.ConflationInterval.ToString());
+                if (!visitedSubs.Contains(subscription.Name))
+                {
+                    visitedSubs.Add(subscription.Name);
 
-                var stats = subscription.Statistics.GetStats();
+                    writer.WriteStartObject();
+                    writer.WriteString(useMnemonics ? "Nm" : "Name", subscription.Name);
+                    writer.WriteString(useMnemonics ? "SubOn" : "SubscribedOn", subscription.SubscribedOn.ToString(DateTimeFormat));
+                    writer.WriteString(useMnemonics ? "CfIn" : "ConflationInterval", subscription.ConflationInterval.ToString());
 
-                WriteFloatingPointNumber(writer, useMnemonics ? "CfRat" : "ConflationRatio", stats.ConflationRatio);
-                WriteFloatingPointNumber(writer, useMnemonics ? "LatRsp" : "LatencyToResponseTimeRatio", stats.LatencyToResponseTimeRatio);
+                    var stats = subscription.Statistics.GetStats();
 
-                WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", stats.IntervalMs, 2);
-                WriteFloatingPointNumber(writer, useMnemonics ? "DqRt" : "DequeueRateInterval", stats.DequeueRate, 2);
-                WriteFloatingPointNumber(writer, useMnemonics ? "PcRt" : "ProcessRateInterval", stats.ProcessRate, 2);
-                WriteFloatingPointNumber(writer, useMnemonics ? "EstAvgAMsg" : "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
-                writer.WriteNumber(useMnemonics ? "TEqMsg" : "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
-                writer.WriteNumber(useMnemonics ? "TDqMsg" : "TotalDequeuedMessages", stats.TotalDequeuedMessages);
-                writer.WriteNumber(useMnemonics ? "TPcMsg" : "TotalProcessedMessages", stats.TotalProcessedMessages);
-                writer.WriteNumber(useMnemonics ? "QLn" : "QueueLength", stats.QueueLength);
-                WriteFloatingPointNumber(writer, useMnemonics ? "AvgLat" : "AvgLatencyTimeMs", stats.AvgLatencyTimeMs);
-                WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvc" : "AvgServiceTimeMs", stats.AvgServiceTimeMs);
-                WriteFloatingPointNumber(writer, useMnemonics ? "AvgRsp" : "AvgResponseTimeMs", stats.AvgResponseTime);
-                WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90LatencyTimeMs", stats.P90LatencyTimeMs);
-                WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90ServiceTimeMs", stats.P90ServiceTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "CfRat" : "ConflationRatio", stats.ConflationRatio);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "LatRsp" : "LatencyToResponseTimeRatio", stats.LatencyToResponseTimeRatio);
 
-                writer.WriteEndObject();
+                    WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", stats.IntervalMs, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "DqRt" : "DequeueRateInterval", stats.DequeueRate, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PcRt" : "ProcessRateInterval", stats.ProcessRate, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "EstAvgAMsg" : "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
+                    writer.WriteNumber(useMnemonics ? "TEqMsg" : "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
+                    writer.WriteNumber(useMnemonics ? "TDqMsg" : "TotalDequeuedMessages", stats.TotalDequeuedMessages);
+                    writer.WriteNumber(useMnemonics ? "TPcMsg" : "TotalProcessedMessages", stats.TotalProcessedMessages);
+                    writer.WriteNumber(useMnemonics ? "QLn" : "QueueLength", stats.QueueLength);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgLat" : "AvgLatencyTimeMs", stats.AvgLatencyTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvc" : "AvgServiceTimeMs", stats.AvgServiceTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "AvgRsp" : "AvgResponseTimeMs", stats.AvgResponseTime);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90LatencyTimeMs", stats.P90LatencyTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90ServiceTimeMs", stats.P90ServiceTimeMs);
+
+                    writer.WriteEndObject();
+                }
             }
 
             writer.WriteEndArray();

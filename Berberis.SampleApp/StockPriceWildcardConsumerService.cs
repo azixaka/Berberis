@@ -20,9 +20,9 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
         using var subscription = _xBar.Subscribe<StockPrice>(destination,
             msg =>
             {
-                _logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
+                //_logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, fetchState: true, includeP90Stats: false);
 
         //await Task.Delay(2000);
 
