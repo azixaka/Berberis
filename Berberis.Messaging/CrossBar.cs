@@ -613,5 +613,5 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     [LoggerMessage(0, LogLevel.Trace, "Sent message [{messageId}] | correlation [{corId}] | key [{key}] to subscription [{subscriptionName}] on channel [{channel}]")]
-    partial void LogMessageSent(long messageId, long corId, string key, string subscriptionName, string channel);  
+    partial void LogMessageSent(long messageId, long corId, string key, string subscriptionName, string channel);   
 }

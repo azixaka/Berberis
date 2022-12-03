@@ -41,7 +41,7 @@ public sealed class Recording<TBody> : IRecording
                                                bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
-        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, false, token);
+        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
         recording.Start(subscription, stream, serialiser, token);
         return recording;
     }
