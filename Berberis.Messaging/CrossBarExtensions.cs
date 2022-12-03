@@ -47,8 +47,8 @@ public static class CrossBarExtensions
                     WriteFloatingPointNumber(writer, useMnemonics ? "LatRsp" : "LatencyToResponseTimeRatio", stats.LatencyToResponseTimeRatio);
 
                     WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", stats.IntervalMs, 2);
-                    WriteFloatingPointNumber(writer, useMnemonics ? "DqRt" : "DequeueRateInterval", stats.DequeueRate, 2);
-                    WriteFloatingPointNumber(writer, useMnemonics ? "PcRt" : "ProcessRateInterval", stats.ProcessRate, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "DqRt" : "DequeueRate", stats.DequeueRate, 2);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PcRt" : "ProcessRate", stats.ProcessRate, 2);
                     WriteFloatingPointNumber(writer, useMnemonics ? "EstAvgAMsg" : "EstimatedAvgActiveMessages", stats.EstimatedAvgActiveMessages);
                     writer.WriteNumber(useMnemonics ? "TEqMsg" : "TotalEnqueuedMessages", stats.TotalEnqueuedMessages);
                     writer.WriteNumber(useMnemonics ? "TDqMsg" : "TotalDequeuedMessages", stats.TotalDequeuedMessages);
