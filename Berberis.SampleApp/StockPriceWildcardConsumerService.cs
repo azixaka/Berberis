@@ -22,7 +22,7 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
             {
                 //_logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, fetchState: true);
+            }, nameof(StockPriceWildcardConsumerService), fetchState: true, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, true, stoppingToken);
 
         //await Task.Delay(2000);
 

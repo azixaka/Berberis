@@ -43,7 +43,7 @@ public sealed class MonitoringService : BackgroundService
             {
                 var chatStats = channel.Statistics.GetStats();
 
-                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime().ToString("dd/MM/yyyy HH:mm.fff"), chatStats.PublishRate);
+                //_logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime().ToString("dd/MM/yyyy HH:mm.fff"), chatStats.PublishRate);
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
                     if (!visitedSubs.Contains(subscription.Name))
@@ -71,7 +71,7 @@ public sealed class MonitoringService : BackgroundService
             }
 
             visitedSubs.Clear();
-            await Task.Delay(1000);
+            await Task.Delay(5000);
         }
 
         await tracingSub?.MessageLoop;

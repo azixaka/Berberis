@@ -50,7 +50,7 @@ public sealed class StatsTracker
 
         if (_includeP90Stats)
             _latencyPercentile!.NewSample(latency, _latencyEwma.AverageValue);
-        
+
         return latency;
     }
 
@@ -78,12 +78,29 @@ public sealed class StatsTracker
 
         float timePassed;
 
+        float latAvg;
+        float svcAvg;
+
+        float latP90 = float.NaN;
+        float svcP90 = float.NaN;
+
         lock (_syncObj)
         {
             intervalMessagesDequeued = totalMesssagesDequeued - _lastMessagesDequeued;
             intervalMessagesProcessed = totalMesssagesProcessed - _lastMessagesProcessed;
 
             timePassed = (float)(ticks - _lastTicks) / Stopwatch.Frequency;
+
+            latAvg = _latencyEwma.AverageValue;
+            svcAvg = _svcTimeEwma.AverageValue;
+            latP90 = float.NaN;
+            svcP90 = float.NaN;
+
+            if (_includeP90Stats)
+            {
+                latP90 = _latencyPercentile!.PercentileValue;
+                svcP90 = _svcTimePercentile!.PercentileValue;
+            }
 
             if (reset)
             {
@@ -109,9 +126,9 @@ public sealed class StatsTracker
             totalMesssagesEnqueued,
             totalMesssagesDequeued,
             totalMesssagesProcessed,
-            _latencyEwma.AverageValue * MsRatio,
-            _svcTimeEwma.AverageValue * MsRatio,
-            _includeP90Stats ? _latencyPercentile!.PercentileValue * MsRatio : float.NaN,
-            _includeP90Stats ? _svcTimePercentile!.PercentileValue * MsRatio : float.NaN);
+            latAvg * MsRatio,
+            svcAvg * MsRatio,
+            latP90 * MsRatio,
+            svcP90 * MsRatio);
     }
 }
