@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Berberis.Messaging.Statistics;
+using System.Diagnostics;
 
 namespace Berberis.Messaging;
 
@@ -9,7 +10,6 @@ public sealed class StatsTracker
     internal static float MsRatio => 1000f / Stopwatch.Frequency;
 
     private long _totalMessagesEnqueued;
-    private long _lastMessagesEnqueued;
 
     private long _totalMessagesDequeued;
     private long _lastMessagesDequeued;
@@ -17,55 +17,50 @@ public sealed class StatsTracker
     private long _totalMessagesProcessed;
     private long _lastMessagesProcessed;
 
-    private long _totalLatencyTicks;
-    private long _lastLatencyTicks;
-
-    private long _totalServiceTicks;
-    private long _lastServiceTicks;
-
-    private long _totalInterDequeueTime;
-    private long _lastInterDequeueTime;
-
-    private long _totalInterProcessTime;
-    private long _lastInterProcessTime;
-
     private long _lastTicks;
     private object _syncObj = new();
 
+    private readonly ExponentialWeightedMovingAverage _latencyEwma = new(50);
+    private readonly ExponentialWeightedMovingAverage _svcTimeEwma = new(50);
+
+    private readonly bool _includeP90Stats;
+    private readonly MovingPercentile? _latencyPercentile;
+    private readonly MovingPercentile? _svcTimePercentile;
+
+    public StatsTracker(bool includeP90Stats)
+    {
+        _includeP90Stats = includeP90Stats;
+        if (_includeP90Stats)
+        {
+            _latencyPercentile = new(0.9f);
+            _svcTimePercentile = new(0.9f);
+        }
+    }
+
     internal void IncNumOfEnqueuedMessages() => Interlocked.Increment(ref _totalMessagesEnqueued);
 
-    internal void IncNumOfDequeuedMessages() => Interlocked.Increment(ref _totalMessagesDequeued);
+    internal void IncNumOfDequeuedMessages() => _totalMessagesDequeued++;
 
-    internal void IncNumOfProcessedMessages() => Interlocked.Increment(ref _totalMessagesProcessed);
+    internal void IncNumOfProcessedMessages() => _totalMessagesProcessed++;
 
-    internal long RecordLatencyAndInterDequeueTime(long startTicks)
+    internal long RecordLatency(long startTicks)
     {
-        var nowTicks = GetTicks();
-        var latency = nowTicks - startTicks;
-        Interlocked.Add(ref _totalLatencyTicks, latency);
+        var latency = GetTicks() - startTicks;
+        _latencyEwma.NewSample(latency);
 
-        if (_lastInterDequeueTime > 0)
-        {
-            Interlocked.Add(ref _totalInterDequeueTime, (nowTicks - _lastInterDequeueTime));
-        }
-
-        _lastInterDequeueTime = nowTicks;
-
+        if (_includeP90Stats)
+            _latencyPercentile!.NewSample(latency, _latencyEwma.AverageValue);
+        
         return latency;
     }
 
-    internal long RecordServiceAndInterProcessTime(long startTicks)
+    internal long RecordServiceTime(long startTicks)
     {
-        var nowTicks = GetTicks();
-        var svcTime = nowTicks - startTicks;
-        Interlocked.Add(ref _totalServiceTicks, svcTime);
+        var svcTime = GetTicks() - startTicks;
+        _svcTimeEwma.NewSample(svcTime);
 
-        if (_lastInterProcessTime > 0)
-        {
-            Interlocked.Add(ref _totalInterProcessTime, (nowTicks - _lastInterProcessTime));
-        }
-
-        _lastInterProcessTime = nowTicks;
+        if (_includeP90Stats)
+            _svcTimePercentile!.NewSample(svcTime, _svcTimeEwma.AverageValue);
 
         return svcTime;
     }
@@ -78,65 +73,42 @@ public sealed class StatsTracker
         var totalMesssagesDequeued = Interlocked.Read(ref _totalMessagesDequeued);
         var totalMesssagesProcessed = Interlocked.Read(ref _totalMessagesProcessed);
 
-        var totalLatencyTicks = Interlocked.Read(ref _totalLatencyTicks);
-        var totalServiceTicks = Interlocked.Read(ref _totalServiceTicks);
-
-        long intervalMessagesEnqueued;
         long intervalMessagesDequeued;
         long intervalMessagesProcessed;
-
-        long intervalLatencyTicks;
-        long intervalSvcTicks;
 
         float timePassed;
 
         lock (_syncObj)
         {
-            intervalMessagesEnqueued = totalMesssagesEnqueued - _lastMessagesEnqueued;
             intervalMessagesDequeued = totalMesssagesDequeued - _lastMessagesDequeued;
             intervalMessagesProcessed = totalMesssagesProcessed - _lastMessagesProcessed;
 
-            intervalLatencyTicks = totalLatencyTicks - _lastLatencyTicks;
-            intervalSvcTicks = totalServiceTicks - _lastServiceTicks;
-
-            timePassed = (float) (ticks - _lastTicks) / Stopwatch.Frequency;
+            timePassed = (float)(ticks - _lastTicks) / Stopwatch.Frequency;
 
             if (reset)
             {
-                _lastMessagesEnqueued = totalMesssagesEnqueued;
                 _lastMessagesDequeued = totalMesssagesDequeued;
                 _lastMessagesProcessed = totalMesssagesProcessed;
 
-                _lastLatencyTicks = totalLatencyTicks;
-                _lastServiceTicks = totalServiceTicks;
-
                 _lastTicks = ticks;
+
+                if (_includeP90Stats)
+                {
+                    _latencyPercentile!.Reset();
+                    _svcTimePercentile!.Reset();
+                }
             }
         }
 
-        var intervalLatencyTimeMs = intervalLatencyTicks * MsRatio;
-        var intervalSvcTimeMs = intervalSvcTicks * MsRatio;
-
-        var avgLatencyTimeMs = intervalMessagesDequeued == 0 ? 0 : intervalLatencyTimeMs / intervalMessagesDequeued;
-        var avgServiceTimeMs = intervalMessagesProcessed == 0 ? 0 : intervalSvcTimeMs / intervalMessagesProcessed;
-
-        var totalLatencyTimeMs = totalLatencyTicks * MsRatio;
-        var totalInterDequeueTimeMs = Interlocked.Read(ref _totalInterDequeueTime) * MsRatio;
-        var totalServiceTimeMs = totalServiceTicks * MsRatio;
-        var totalInterProcessTimeMs = Interlocked.Read(ref _totalInterProcessTime) * MsRatio;
-
         return new Stats(timePassed * 1000,
-            intervalMessagesEnqueued / timePassed,
             intervalMessagesDequeued / timePassed,
             intervalMessagesProcessed / timePassed,
             totalMesssagesEnqueued,
             totalMesssagesDequeued,
-            totalInterDequeueTimeMs,
             totalMesssagesProcessed,
-            totalInterProcessTimeMs,
-            totalLatencyTimeMs,
-            avgLatencyTimeMs,
-            totalServiceTimeMs,
-            avgServiceTimeMs);
+            _latencyEwma.AverageValue * MsRatio,
+            _svcTimeEwma.AverageValue * MsRatio,
+            _includeP90Stats ? _latencyPercentile!.PercentileValue * MsRatio : float.NaN,
+            _includeP90Stats ? _svcTimePercentile!.PercentileValue * MsRatio : float.NaN);
     }
 }

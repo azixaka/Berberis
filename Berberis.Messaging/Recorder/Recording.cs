@@ -41,7 +41,7 @@ public sealed class Recording<TBody> : IRecording
                                                bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
-        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
+        var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, false, token);
         recording.Start(subscription, stream, serialiser, token);
         return recording;
     }
@@ -54,10 +54,13 @@ public sealed class Recording<TBody> : IRecording
 
         var pipeWriter = _pipe.Writer;
 
-        var messageLengthSpan = MessageCodec.WriteChannelUpdateMessageHeader(pipeWriter, _serialiser.Version, ref message);
+        var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(pipeWriter, _serialiser.Version, ref message);
 
-        // Write serialised messasge body
-        _serialiser.Serialize(message.Body, pipeWriter);
+        if (message.MessageType == MessageType.ChannelUpdate)
+        {
+            // Write serialised messasge body
+            _serialiser.Serialize(message.Body!, pipeWriter);
+        }
 
         MessageCodec.WriteMessageLengthPrefixAndSuffix(pipeWriter, messageLengthSpan);
 

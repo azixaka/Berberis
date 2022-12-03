@@ -15,12 +15,12 @@ public interface ICrossBar
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId);
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from);
 
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token = default);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, CancellationToken token = default);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, CancellationToken token = default);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, CancellationToken token = default);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval, CancellationToken token = default);
-    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool includeP90Stats = false, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool includeP90Stats = false, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, bool includeP90Stats = false, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, bool includeP90Stats = false, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval, bool includeP90Stats = false, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval, bool includeP90Stats = false, CancellationToken token = default);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
@@ -28,6 +28,7 @@ public interface ICrossBar
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,
        TimeSpan conflationInterval,
+       bool includeP90Stats = false,
        CancellationToken token = default);
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);

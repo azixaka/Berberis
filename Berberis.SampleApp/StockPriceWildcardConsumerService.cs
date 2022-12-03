@@ -24,17 +24,17 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
                 return ValueTask.CompletedTask;
             }, fetchState: true);
 
-        await Task.Delay(2000);
+        //await Task.Delay(2000);
 
-        subscription.IsDetached = true;
-        await Task.Delay(2000);
-        subscription.IsDetached = false;
+        //subscription.IsDetached = true;
+        //await Task.Delay(2000);
+        //subscription.IsDetached = false;
 
-        await Task.Delay(2000);
+        //await Task.Delay(2000);
 
-        subscription.IsProcessingSuspended = true;
-        await Task.Delay(2000);
-        subscription.IsProcessingSuspended = false;
+        //subscription.IsProcessingSuspended = true;
+        //await Task.Delay(2000);
+        //subscription.IsProcessingSuspended = false;
 
         await subscription.MessageLoop;
     }

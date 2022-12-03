@@ -31,7 +31,7 @@ public sealed class MonitoringService : BackgroundService
                     _logger.LogInformation(msg.Body.ToString());
 
                     return ValueTask.CompletedTask;
-                }, stoppingToken);
+                }, token: stoppingToken);
         }
         catch { }
 
@@ -41,16 +41,16 @@ public sealed class MonitoringService : BackgroundService
             {
                 var chatStats = channel.Statistics.GetStats();
 
-                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, PubIn: {pubIn:N2}, PubLt: {pubLt:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime(), chatStats.PublishRateInterval, chatStats.PublishRateLongTerm);
+                _logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime(), chatStats.PublishRate);
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
                     var stats = subscription.Statistics.GetStats();
 
-                    var intervalStats = $"Int: {stats.IntervalMs:N0} ms; Enq: {stats.EnqueueRateInterval:N1} msg/s; Deq: {stats.DequeueRateInterval:N1} msg/s; Pcs: {stats.ProcessRateInterval:N1} msg/s; EnqT: {stats.TotalEnqueuedMessages:N0}; DeqT: {stats.TotalDequeuedMessages:N0}; PcsT: {stats.TotalProcessedMessages:N0}; AvgLat: {stats.AvgLatencyTimeMsInterval:N4} ms; Avg Svc: {stats.AvgServiceTimeMsInterval:N4} ms";
-                    var longTermStats = $"Conf: {stats.ConflationRatioLongTerm:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatioLongTerm:N2}; Deq: {stats.DequeueRateLongTerm:N1} msg/s; Pcs: {stats.ProcessRateLongTerm:N2} msg/s; EAAM: {stats.EstimatedAvgActiveMessages:N4}; AvgLat: {stats.AvgLatencyTimeMsLongTerm:N4} ms; AvgSvc: {stats.AvgServiceTimeMsLongTerm:N4} ms";
+                    var intervalStats = $"Int: {stats.IntervalMs:N0} ms; Deq: {stats.DequeueRate:N1} msg/s; Pcs: {stats.ProcessRate:N1} msg/s; EnqT: {stats.TotalEnqueuedMessages:N0}; DeqT: {stats.TotalDequeuedMessages:N0}; PcsT: {stats.TotalProcessedMessages:N0};";
+                    var longTermStats = $"P90 Lat: {stats.P90LatencyTimeMs:N4}; AvgLat: {stats.AvgLatencyTimeMs:N4}; P90 Svc: {stats.P90ServiceTimeMs:N4}; Avg Svc: {stats.AvgServiceTimeMs:N4}; AvgRsp: {stats.AvgResponseTime:N4} ms; Conf: {stats.ConflationRatio:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatio:N2}; EAAM: {stats.EstimatedAvgActiveMessages:N4};";
 
-                    _logger.LogInformation("--- Subscription: [{subName}], Interval Stats: {stats}", subscription.Name, intervalStats);
-                    _logger.LogInformation("--- Subscription: [{subName}], Long-term Stats: {stats}", subscription.Name, longTermStats);
+                    _logger.LogInformation("--- Subscription: [{subName}], Rates: {stats}", subscription.Name, intervalStats);
+                    _logger.LogInformation("--- Subscription: [{subName}], Times: {stats}", subscription.Name, longTermStats);
 
                     //var ms = new MemoryStream();
                     //var writer = new Utf8JsonWriter(ms);

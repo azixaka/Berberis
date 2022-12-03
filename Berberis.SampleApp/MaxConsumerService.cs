@@ -1,12 +1,10 @@
 ﻿using Berberis.Messaging;
 using Berberis.Recorder;
-using System.Buffers.Binary;
-using System.Buffers;
 using System.Text;
 
 namespace Berberis.SampleApp;
 
-public sealed class MaxConsumerService : BackgroundService
+public sealed partial class MaxConsumerService : BackgroundService
 {
     private readonly ILogger<MaxConsumerService> _logger;
     private readonly ICrossBar _xBar;
@@ -49,31 +47,14 @@ public sealed class MaxConsumerService : BackgroundService
         //await recording.MessageLoop;
 
         using var subscription = _xBar.Subscribe<long>(destination,
-            msg => ProcessMessage(msg), stoppingToken);
-        
+            msg => ProcessMessage(msg), token: stoppingToken);
+
         await subscription.MessageLoop;
-    }
-
-    public sealed class NumberSerialiser : IMessageBodySerializer<long>
-    {
-        public SerializerVersion Version { get; } = new SerializerVersion(1, 0);
-
-        public long Deserialize(ReadOnlySpan<byte> data)
-        {
-            return BinaryPrimitives.ReadInt64LittleEndian(data);
-        }
-
-        public void Serialize(long value, IBufferWriter<byte> writer)
-        {
-            var span = writer.GetSpan(8);
-            BinaryPrimitives.WriteInt64LittleEndian(span, value);
-            writer.Advance(8);
-        }
     }
 
     private  ValueTask ProcessMessage(Message<long> message)
     {
-        Thread.SpinWait(4);
+        //Thread.SpinWait(4);
         return ValueTask.CompletedTask;
 
         //using (_logger.BeginScope(message.CorrelationId))

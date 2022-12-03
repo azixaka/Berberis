@@ -24,7 +24,8 @@ public sealed partial class Subscription<TBody> : ISubscription
         Func<Message<TBody>, ValueTask> handleFunc,
         Action disposeAction,
         IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? stateFactories,
-        CrossBar crossBar, bool isSystemChannel, bool isWildcard)
+        CrossBar crossBar, bool isSystemChannel, bool isWildcard,
+        bool includeP90Stats)
     {
         _logger = logger;
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
@@ -57,7 +58,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                 AllowSynchronousContinuations = false
             });
 
-        Statistics = new StatsTracker();
+        Statistics = new StatsTracker(includeP90Stats);
     }
 
     public string Name { get; }
@@ -137,7 +138,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         {
             while (_channel.Reader.TryRead(out var message))
             {
-                var latencyTicks = Statistics.RecordLatencyAndInterDequeueTime(message.InceptionTicks);
+                var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.IncNumOfDequeuedMessages();
 
                 if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
@@ -285,7 +286,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void PostProcessMessage(ref Message<TBody> message, long beforeServiceTicks, long latencyTicks)
     {
-        var svcTimeTicks = Statistics.RecordServiceAndInterProcessTime(beforeServiceTicks);
+        var svcTimeTicks = Statistics.RecordServiceTime(beforeServiceTicks);
         Statistics.IncNumOfProcessedMessages();
 
         if (!_isSystemChannel && _crossBar.MessageTracingEnabled)

@@ -22,7 +22,7 @@ public sealed class Startup
         services.AddOptions();
 
         services.AddSingleton<ICrossBar, CrossBar>()
-                //.AddHostedService<MonitoringService>()
+                .AddHostedService<MonitoringService>()
                 .AddHostedService<StockPriceProducerService>()
                 .AddHostedService<StockPriceConsumerService>()
                 //.AddHostedService<StockPriceSeparateChannelsProducerService>()

@@ -10,26 +10,10 @@ public sealed class ChannelStatsTracker
     private long _totalMessages;
     private long _lastMessages;
 
-    private long _totalInterPublishTime;
-    private long _lastInterPublishTime;
-
     private long _lastTicks;
     private object _syncObj = new();
 
-    internal void IncNumOfPublishedMessages()
-    {
-        var nowTicks = GetTicks();
-
-        //todo: make atomic and benchmark against lock which might actually be cheaper than 3 interlocked ops!
-        if (_lastInterPublishTime > 0)
-        {
-            Interlocked.Add(ref _totalInterPublishTime, (nowTicks - _lastInterPublishTime));
-        }
-
-        Interlocked.Exchange(ref _lastInterPublishTime, nowTicks);
-
-        Interlocked.Increment(ref _totalMessages);
-    }
+    internal void IncNumOfPublishedMessages() => Interlocked.Increment(ref _totalMessages);
 
     public ChannelStats GetStats(bool reset = true)
     {
@@ -54,11 +38,8 @@ public sealed class ChannelStatsTracker
             }
         }
 
-        var totalInterProcessTimeMs = Interlocked.Read(ref _totalInterPublishTime) * MsRatio;
-
         return new ChannelStats(timePassed * 1000,
             intervalMessagesInc / timePassed,
-            totalInterProcessTimeMs,
             totalMesssagesInc);
     }
 }
