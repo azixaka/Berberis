@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Berberis.Messaging.Statistics;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
@@ -173,7 +174,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                                           string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
                                           TimeSpan conflationInterval,
-                                          bool includeP90Stats,
+                                          StatsOptions subscriptionStatsOptions,
                                           CancellationToken token = default)
     {
         EnsureNotDisposed();
@@ -185,7 +186,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
         if (IsWildcardSubscription(channelName))
         {
-            return SubscribeWildcard(channelName, handler, subscriptionName, fetchState, slowConsumerStrategy, bufferCapacity, conflationInterval, includeP90Stats, token);
+            return SubscribeWildcard(channelName, handler, subscriptionName, fetchState, slowConsumerStrategy, bufferCapacity, conflationInterval, subscriptionStatsOptions, token);
         }
 
         var subType = typeof(TBody);
@@ -209,7 +210,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
                                                        id, subscriptionName, channelName, bufferCapacity, conflationInterval, slowConsumerStrategy, handler,
                                                        () => Unsubscribe(channelName, id),
-                                                       stateFactory != null ? new[] { stateFactory } : null, this, false, false, includeP90Stats);
+                                                       stateFactory != null ? new[] { stateFactory } : null, this, false, false, subscriptionStatsOptions);
 
             if (channel.Subscriptions.TryAdd(id, subscription))
             {
@@ -232,7 +233,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                                                       string? subscriptionName,
                                                       bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
                                                       TimeSpan conflationInterval,
-                                                      bool includeP90Stats,
+                                                      StatsOptions subscriptionStatsOptions,
                                                       CancellationToken token = default)
     {
         //todo: review adding wildcardSubscription to the registry here and adding one in the CreateNewChannel when publishing/subscribing potential RACE condition
@@ -247,7 +248,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
                                                    id, subscriptionName, pattern, bufferCapacity, conflationInterval, slowConsumerStrategy, handler,
                                                    () => Unsubscribe(pattern, id),
-                                                   stateFactories, this, false, true, includeP90Stats);
+                                                   stateFactories, this, false, true, subscriptionStatsOptions);
 
         //re: race condition described above - it could be that someone published|subscribed and created a new channel matching this very same pattern by now
         //but our new subscription isn't in the registry yet, so that update is missed.
@@ -373,7 +374,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
                                                                id, subscriptionName, channelName, 1000, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
                                                                () => Unsubscribe(channelName, id),
-                                                               null, this, true, false, includeP90Stats: false);
+                                                               null, this, true, false, default);
 
                 if (channel.Subscriptions.TryAdd(id, subscription))
                 {
@@ -505,6 +506,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     return new SubscriptionInfo
                     {
                         Name = kvp.Value.Name,
+                        ChannelName = kvp.Value.ChannelName,
+                        IsWildcard= kvp.Value.IsWildcard,
                         SubscribedOn = kvp.Value.SubscribedOn,
                         ConflationInterval = kvp.Value.ConflationInterval,
                         Statistics = kvp.Value.Statistics

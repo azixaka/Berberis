@@ -45,7 +45,12 @@ public static class CrossBarExtensions
                     else
                         writer.WriteString(useMnemonics ? "CfIn" : "ConflationInterval", subscription.ConflationInterval.ToString());
 
+                    writer.WriteString(useMnemonics ? "ChNm" : "ChannelName", subscription.ChannelName);
+                    writer.WriteBoolean(useMnemonics ? "IsWld" : "IsWildcard", subscription.IsWildcard);
+
                     var stats = subscription.Statistics.GetStats();
+
+                    WriteFloatingPointNumber(writer, useMnemonics ? "StPct" : "StatsPercentile", subscription.Statistics.StatsOptions.Percentile * 100, 0);
 
                     WriteFloatingPointNumber(writer, useMnemonics ? "CfRat" : "ConflationRatio", stats.ConflationRatio);
                     WriteFloatingPointNumber(writer, useMnemonics ? "LatRsp" : "LatencyToResponseTimeRatio", stats.LatencyToResponseTimeRatio);
@@ -61,8 +66,8 @@ public static class CrossBarExtensions
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgLat" : "AvgLatencyTimeMs", stats.AvgLatencyTimeMs);
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvc" : "AvgServiceTimeMs", stats.AvgServiceTimeMs);
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgRsp" : "AvgResponseTimeMs", stats.AvgResponseTime);
-                    WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90LatencyTimeMs", stats.P90LatencyTimeMs);
-                    WriteFloatingPointNumber(writer, useMnemonics ? "P90Lat" : "P90ServiceTimeMs", stats.P90ServiceTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PctLat" : "PctLatencyTimeMs", stats.PercentileLatencyTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "PctSvc" : "PctServiceTimeMs", stats.PercentileServiceTimeMs);
 
                     writer.WriteEndObject();
                 }

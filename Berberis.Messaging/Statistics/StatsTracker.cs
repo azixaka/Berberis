@@ -1,7 +1,6 @@
-﻿using Berberis.Messaging.Statistics;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
-namespace Berberis.Messaging;
+namespace Berberis.Messaging.Statistics;
 
 public sealed class StatsTracker
 {
@@ -20,22 +19,30 @@ public sealed class StatsTracker
     private long _lastTicks;
     private object _syncObj = new();
 
-    private readonly ExponentialWeightedMovingAverage _latencyEwma = new(50);
-    private readonly ExponentialWeightedMovingAverage _svcTimeEwma = new(50);
+    private readonly ExponentialWeightedMovingAverage _latencyEwma;
+    private readonly ExponentialWeightedMovingAverage _svcTimeEwma;
 
-    private readonly bool _includeP90Stats;
+    private readonly bool _includePercentileStats;
     private readonly MovingPercentile? _latencyPercentile;
     private readonly MovingPercentile? _svcTimePercentile;
 
-    public StatsTracker(bool includeP90Stats)
+    public StatsTracker(StatsOptions statsOptions)
     {
-        _includeP90Stats = includeP90Stats;
-        if (_includeP90Stats)
+        StatsOptions = statsOptions;
+
+        _latencyEwma = new(statsOptions.EwmaWindowSize);
+        _svcTimeEwma = new(statsOptions.EwmaWindowSize);
+
+        _includePercentileStats = statsOptions.PercentileEnabled;
+
+        if (_includePercentileStats)
         {
-            _latencyPercentile = new(0.9f);
-            _svcTimePercentile = new(0.9f);
+            _latencyPercentile = new(statsOptions.Percentile, statsOptions.Alpha, statsOptions.Delta);
+            _svcTimePercentile = new(statsOptions.Percentile, statsOptions.Alpha, statsOptions.Delta);
         }
     }
+
+    public StatsOptions StatsOptions { get; }
 
     internal void IncNumOfEnqueuedMessages() => Interlocked.Increment(ref _totalMessagesEnqueued);
 
@@ -48,7 +55,7 @@ public sealed class StatsTracker
         var latency = GetTicks() - startTicks;
         _latencyEwma.NewSample(latency);
 
-        if (_includeP90Stats)
+        if (_includePercentileStats)
             _latencyPercentile!.NewSample(latency, _latencyEwma.AverageValue);
 
         return latency;
@@ -59,7 +66,7 @@ public sealed class StatsTracker
         var svcTime = GetTicks() - startTicks;
         _svcTimeEwma.NewSample(svcTime);
 
-        if (_includeP90Stats)
+        if (_includePercentileStats)
             _svcTimePercentile!.NewSample(svcTime, _svcTimeEwma.AverageValue);
 
         return svcTime;
@@ -81,8 +88,8 @@ public sealed class StatsTracker
         float latAvg;
         float svcAvg;
 
-        float latP90 = float.NaN;
-        float svcP90 = float.NaN;
+        float latPct = float.NaN;
+        float svcPct = float.NaN;
 
         lock (_syncObj)
         {
@@ -93,13 +100,13 @@ public sealed class StatsTracker
 
             latAvg = _latencyEwma.AverageValue;
             svcAvg = _svcTimeEwma.AverageValue;
-            latP90 = float.NaN;
-            svcP90 = float.NaN;
+            latPct = float.NaN;
+            svcPct = float.NaN;
 
-            if (_includeP90Stats)
+            if (_includePercentileStats)
             {
-                latP90 = _latencyPercentile!.PercentileValue;
-                svcP90 = _svcTimePercentile!.PercentileValue;
+                latPct = _latencyPercentile!.PercentileValue;
+                svcPct = _svcTimePercentile!.PercentileValue;
             }
 
             if (reset)
@@ -112,7 +119,7 @@ public sealed class StatsTracker
                 _latencyEwma.Reset();
                 _svcTimeEwma.Reset();
 
-                if (_includeP90Stats)
+                if (_includePercentileStats)
                 {
                     _latencyPercentile!.Reset();
                     _svcTimePercentile!.Reset();
@@ -128,7 +135,7 @@ public sealed class StatsTracker
             totalMesssagesProcessed,
             latAvg * MsRatio,
             svcAvg * MsRatio,
-            latP90 * MsRatio,
-            svcP90 * MsRatio);
+            latPct * MsRatio,
+            svcPct * MsRatio);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Berberis.Messaging;
+﻿namespace Berberis.Messaging.Statistics;
 
 public readonly struct Stats
 {
@@ -38,9 +38,9 @@ public readonly struct Stats
     public readonly float AvgLatencyTimeMs;
 
     /// <summary>
-    /// P90 latency time in milliseconds, i.e how long it took on average to wait to be processed
+    /// N-th percentile latency time in milliseconds, i.e how long it took on average to wait to be processed
     /// </summary>
-    public readonly float P90LatencyTimeMs;
+    public readonly float PercentileLatencyTimeMs;
 
     /// <summary>
     /// Average service time in this interval, in milliseconds, i.e how long it took on average to process an operation
@@ -48,9 +48,9 @@ public readonly struct Stats
     public readonly float AvgServiceTimeMs;
 
     /// <summary>
-    /// P90 service time in milliseconds, i.e how long it took on average to process an operation
+    /// N-th percentile service time in milliseconds, i.e how long it took on average to process an operation
     /// </summary>
-    public readonly float P90ServiceTimeMs;
+    public readonly float PercentileServiceTimeMs;
 
     /// <summary>
     /// Average response time (latency + service time)
@@ -92,8 +92,8 @@ public readonly struct Stats
         long totalProcessedMessages,
         float avgLatencyTimeMs,
         float avgServiceTimeMs,
-        float p90LatencyTimeMs,
-        float p90ServiceTimeMs
+        float percentileLatencyTimeMs,
+        float percentileServiceTimeMs
         )
     {
         IntervalMs = intervalMs;
@@ -104,7 +104,7 @@ public readonly struct Stats
         TotalProcessedMessages = totalProcessedMessages;
         AvgLatencyTimeMs = avgLatencyTimeMs;
         AvgServiceTimeMs = avgServiceTimeMs;
-        P90LatencyTimeMs= p90LatencyTimeMs;
-        P90ServiceTimeMs = p90ServiceTimeMs;
+        PercentileLatencyTimeMs = percentileLatencyTimeMs;
+        PercentileServiceTimeMs = percentileServiceTimeMs;
     }
 }

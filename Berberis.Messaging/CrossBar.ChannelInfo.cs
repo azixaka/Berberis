@@ -1,4 +1,6 @@
-﻿namespace Berberis.Messaging;
+﻿using Berberis.Messaging.Statistics;
+
+namespace Berberis.Messaging;
 
 partial class CrossBar
 {

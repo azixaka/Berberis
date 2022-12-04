@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Berberis.Messaging;
+namespace Berberis.Messaging.Statistics;
 
 public sealed class ChannelStatsTracker
 {

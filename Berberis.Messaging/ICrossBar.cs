@@ -1,4 +1,6 @@
-﻿namespace Berberis.Messaging;
+﻿using Berberis.Messaging.Statistics;
+
+namespace Berberis.Messaging;
 
 public interface ICrossBar
 {
@@ -24,11 +26,23 @@ public interface ICrossBar
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
+       StatsOptions statsOptions = default,
+       CancellationToken token = default);
+
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
+       string subscriptionName,
+       bool fetchState,
+       TimeSpan conflationInterval,
+       StatsOptions statsOptions = default,
+       CancellationToken token = default);
+
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
+       string subscriptionName,
        bool fetchState,
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,
        TimeSpan conflationInterval,
-       bool includeP90Stats,
+       StatsOptions statsOptions = default,
        CancellationToken token = default);
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);

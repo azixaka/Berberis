@@ -1,4 +1,5 @@
 ﻿using Berberis.Messaging;
+using Berberis.Messaging.Statistics;
 
 namespace Berberis.SampleApp;
 
@@ -22,7 +23,10 @@ public sealed class StockPriceWildcardConsumerService : BackgroundService
             {
                 //_logger.LogInformation("Got Message {msgId}. [{symbol}={price:N4}]", msg.Id, msg.Body.Symbol, msg.Body.Price);
                 return ValueTask.CompletedTask;
-            }, nameof(StockPriceWildcardConsumerService), fetchState: true, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, true, stoppingToken);
+            }, nameof(StockPriceWildcardConsumerService), 
+            fetchState: true,
+            TimeSpan.Zero, 
+            new StatsOptions(percentile: 0.9f), stoppingToken);
 
         //await Task.Delay(2000);
 

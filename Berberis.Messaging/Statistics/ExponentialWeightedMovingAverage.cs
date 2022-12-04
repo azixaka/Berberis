@@ -11,6 +11,8 @@ public sealed class ExponentialWeightedMovingAverage
 
     public ExponentialWeightedMovingAverage(int samplesPerWindow)
     {
+        samplesPerWindow = samplesPerWindow < 1 ? 50 : samplesPerWindow;
+
         // `2 / (n + 1)` is a standard ways of choosing an alpha value
         _alpha = 2f / (samplesPerWindow + 1);
     }

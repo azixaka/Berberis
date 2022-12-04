@@ -53,7 +53,7 @@ public sealed class MonitoringService : BackgroundService
                         visitedSubs.Add(subscription.Name);
 
                         var intervalStats = $"Int: {stats.IntervalMs:N0} ms; Deq: {stats.DequeueRate:N1} msg/s; Pcs: {stats.ProcessRate:N1} msg/s; EnqT: {stats.TotalEnqueuedMessages:N0}; DeqT: {stats.TotalDequeuedMessages:N0}; PcsT: {stats.TotalProcessedMessages:N0};";
-                        var longTermStats = $"P90 Lat: {stats.P90LatencyTimeMs:N4}; AvgLat: {stats.AvgLatencyTimeMs:N4}; P90 Svc: {stats.P90ServiceTimeMs:N4}; Avg Svc: {stats.AvgServiceTimeMs:N4}; AvgRsp: {stats.AvgResponseTime:N4} ms; Conf: {stats.ConflationRatio:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatio:N2}; EAAM: {stats.EstimatedAvgActiveMessages:N4};";
+                        var longTermStats = $"P90 Lat: {stats.PercentileLatencyTimeMs:N4}; AvgLat: {stats.AvgLatencyTimeMs:N4}; P90 Svc: {stats.PercentileServiceTimeMs:N4}; Avg Svc: {stats.AvgServiceTimeMs:N4}; AvgRsp: {stats.AvgResponseTime:N4} ms; Conf: {stats.ConflationRatio:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatio:N2}; EAAM: {stats.EstimatedAvgActiveMessages:N4};";
 
                         _logger.LogInformation("--- Subscription: [{subName}], Rates: {stats}", subscription.Name, intervalStats);
                         _logger.LogInformation("--- Subscription: [{subName}], Times: {stats}", subscription.Name, longTermStats);

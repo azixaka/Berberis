@@ -1,4 +1,6 @@
-﻿namespace Berberis.Messaging;
+﻿using Berberis.Messaging.Statistics;
+
+namespace Berberis.Messaging;
 
 partial class CrossBar
 {
@@ -10,20 +12,26 @@ partial class CrossBar
     public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish(channel, body, 0, key, store, null);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token)
-        => Subscribe(channel, handler, null, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, false, token);
+        => Subscribe(channel, handler, null, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, default, token);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, CancellationToken token)
-        => Subscribe(channel, handler, subscriptionName, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, false, token);
+        => Subscribe(channel, handler, subscriptionName, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, default, token);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, CancellationToken token)
-        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, false, token);
+        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, default, token);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, CancellationToken token)
-        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, false, token);
+        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, default, token);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval, CancellationToken token)
-        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationInterval, false, token);
+        => Subscribe(channel, handler, null, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationInterval, default, token);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval, CancellationToken token)
-        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationInterval, false, token);
+        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationInterval, default, token);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, StatsOptions statsOptions, CancellationToken token)
+       => Subscribe(channel, handler, subscriptionName, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, statsOptions, token);
+
+    public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, bool fetchState, TimeSpan conflationInterval, StatsOptions statsOptions, CancellationToken token)
+        => Subscribe(channel, handler, subscriptionName, fetchState, SlowConsumerStrategy.SkipUpdates, null, conflationInterval, statsOptions, token);
 }

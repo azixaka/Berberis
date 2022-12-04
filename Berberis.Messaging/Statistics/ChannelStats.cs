@@ -1,4 +1,4 @@
-﻿namespace Berberis.Messaging;
+﻿namespace Berberis.Messaging.Statistics;
 
 public readonly struct ChannelStats
 {

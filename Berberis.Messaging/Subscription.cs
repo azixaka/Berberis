@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Berberis.Messaging.Statistics;
+using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
@@ -25,7 +26,7 @@ public sealed partial class Subscription<TBody> : ISubscription
         Action disposeAction,
         IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? stateFactories,
         CrossBar crossBar, bool isSystemChannel, bool isWildcard,
-        bool includeP90Stats)
+        StatsOptions statsOptions)
     {
         _logger = logger;
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
@@ -58,7 +59,7 @@ public sealed partial class Subscription<TBody> : ISubscription
                 AllowSynchronousContinuations = false
             });
 
-        Statistics = new StatsTracker(includeP90Stats);
+        Statistics = new StatsTracker(statsOptions);
     }
 
     public string Name { get; }
