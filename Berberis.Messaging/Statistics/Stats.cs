@@ -38,6 +38,16 @@ public readonly struct Stats
     public readonly float AvgLatencyTimeMs;
 
     /// <summary>
+    /// Min latency time in this interval, in milliseconds, i.e how long it took on average to wait to be processed
+    /// </summary>
+    public readonly float MinLatencyTimeMs;
+
+    /// <summary>
+    /// Max latency time in this interval, in milliseconds, i.e how long it took on average to wait to be processed
+    /// </summary>
+    public readonly float MaxLatencyTimeMs;
+
+    /// <summary>
     /// N-th percentile latency time in milliseconds, i.e how long it took on average to wait to be processed
     /// </summary>
     public readonly float PercentileLatencyTimeMs;
@@ -46,6 +56,16 @@ public readonly struct Stats
     /// Average service time in this interval, in milliseconds, i.e how long it took on average to process an operation
     /// </summary>
     public readonly float AvgServiceTimeMs;
+
+    /// <summary>
+    /// Min service time in this interval, in milliseconds, i.e how long it took on average to process an operation
+    /// </summary>
+    public readonly float MinServiceTimeMs;
+
+    /// <summary>
+    /// Max service time in this interval, in milliseconds, i.e how long it took on average to process an operation
+    /// </summary>
+    public readonly float MaxServiceTimeMs;
 
     /// <summary>
     /// N-th percentile service time in milliseconds, i.e how long it took on average to process an operation
@@ -93,7 +113,11 @@ public readonly struct Stats
         float avgLatencyTimeMs,
         float avgServiceTimeMs,
         float percentileLatencyTimeMs,
-        float percentileServiceTimeMs
+        float percentileServiceTimeMs,
+        float minLatencyTimeMs,
+        float maxLatencyTimeMs,
+        float minServiceTimeMs,
+        float maxServiceTimeMs
         )
     {
         IntervalMs = intervalMs;
@@ -106,5 +130,9 @@ public readonly struct Stats
         AvgServiceTimeMs = avgServiceTimeMs;
         PercentileLatencyTimeMs = percentileLatencyTimeMs;
         PercentileServiceTimeMs = percentileServiceTimeMs;
+        MinLatencyTimeMs = minLatencyTimeMs;
+        MaxLatencyTimeMs = maxLatencyTimeMs;
+        MinServiceTimeMs = minServiceTimeMs;
+        MaxServiceTimeMs = maxServiceTimeMs;
     }
 }

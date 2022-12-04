@@ -64,7 +64,11 @@ public static class CrossBarExtensions
                     writer.WriteNumber(useMnemonics ? "TPcMsg" : "TotalProcessedMessages", stats.TotalProcessedMessages);
                     writer.WriteNumber(useMnemonics ? "QLn" : "QueueLength", stats.QueueLength);
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgLat" : "AvgLatencyTimeMs", stats.AvgLatencyTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "MinLat" : "MinLatencyTimeMs", stats.MinLatencyTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "MaxLat" : "MaxLatencyTimeMs", stats.MaxLatencyTimeMs);
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgSvc" : "AvgServiceTimeMs", stats.AvgServiceTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "MinSvc" : "MinServiceTimeMs", stats.MinServiceTimeMs);
+                    WriteFloatingPointNumber(writer, useMnemonics ? "MaxSvc" : "MaxServiceTimeMs", stats.MaxServiceTimeMs);
                     WriteFloatingPointNumber(writer, useMnemonics ? "AvgRsp" : "AvgResponseTimeMs", stats.AvgResponseTime);
                     WriteFloatingPointNumber(writer, useMnemonics ? "PctLat" : "PctLatencyTimeMs", stats.PercentileLatencyTimeMs);
                     WriteFloatingPointNumber(writer, useMnemonics ? "PctSvc" : "PctServiceTimeMs", stats.PercentileServiceTimeMs);

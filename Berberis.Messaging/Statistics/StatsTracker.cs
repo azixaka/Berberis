@@ -86,7 +86,11 @@ public sealed class StatsTracker
         float timePassed;
 
         float latAvg;
+        float latMin;
+        float latMax;
         float svcAvg;
+        float svcMin;
+        float svcMax;
 
         float latPct = float.NaN;
         float svcPct = float.NaN;
@@ -99,7 +103,13 @@ public sealed class StatsTracker
             timePassed = (float)(ticks - _lastTicks) / Stopwatch.Frequency;
 
             latAvg = _latencyEwma.AverageValue;
+            latMin = _latencyEwma.MinValue;
+            latMax = _latencyEwma.MaxValue;
+
             svcAvg = _svcTimeEwma.AverageValue;
+            svcMin = _svcTimeEwma.MinValue;
+            svcMax = _svcTimeEwma.MaxValue;
+
             latPct = float.NaN;
             svcPct = float.NaN;
 
@@ -136,6 +146,11 @@ public sealed class StatsTracker
             latAvg * MsRatio,
             svcAvg * MsRatio,
             latPct * MsRatio,
-            svcPct * MsRatio);
+            svcPct * MsRatio,
+            latMin * MsRatio,
+            latMax * MsRatio,
+            svcMin * MsRatio,
+            svcMax * MsRatio
+            );
     }
 }

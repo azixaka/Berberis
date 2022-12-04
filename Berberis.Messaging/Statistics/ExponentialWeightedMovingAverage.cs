@@ -8,6 +8,8 @@ public sealed class ExponentialWeightedMovingAverage
     private float _alpha;
 
     public float AverageValue { get; private set; }
+    public float MinValue { get; private set; }
+    public float MaxValue { get; private set; }
 
     public ExponentialWeightedMovingAverage(int samplesPerWindow)
     {
@@ -23,10 +25,15 @@ public sealed class ExponentialWeightedMovingAverage
         {
             // Recursive weighting function: EMA[current] = EMA[previous] + alpha * (current_value - EMA[previous])
             AverageValue += _alpha * (value - AverageValue);
+
+            MinValue = Math.Min(MinValue, value);
+            MaxValue = Math.Max(MaxValue, value);
         }
         else
         {
             AverageValue = value;
+            MinValue = value;
+            MaxValue = value;
             _initialised = true;
         }
     }
@@ -34,6 +41,8 @@ public sealed class ExponentialWeightedMovingAverage
     public void Reset()
     {
         AverageValue = 0;
+        MinValue = 0;
+        MaxValue = 0;
         _initialised = false;
     }
 }
