@@ -26,14 +26,14 @@ public interface ICrossBar
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
-       StatsOptions statsOptions = default,
+       StatsOptions statsOptions,
        CancellationToken token = default);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
        string subscriptionName,
        bool fetchState,
        TimeSpan conflationInterval,
-       StatsOptions statsOptions = default,
+       StatsOptions statsOptions,
        CancellationToken token = default);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
@@ -42,7 +42,7 @@ public interface ICrossBar
        SlowConsumerStrategy slowConsumerStrategy,
        int? bufferCapacity,
        TimeSpan conflationInterval,
-       StatsOptions statsOptions = default,
+       StatsOptions statsOptions,
        CancellationToken token = default);
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);
