@@ -37,8 +37,8 @@ public sealed class StatsTracker
 
         if (_includePercentileStats)
         {
-            _latencyPercentile = new(statsOptions.Percentile, statsOptions.Alpha, statsOptions.Delta);
-            _svcTimePercentile = new(statsOptions.Percentile, statsOptions.Alpha, statsOptions.Delta);
+            _latencyPercentile = new(statsOptions.Percentile!.Value, statsOptions.Alpha, statsOptions.Delta);
+            _svcTimePercentile = new(statsOptions.Percentile!.Value, statsOptions.Alpha, statsOptions.Delta);
         }
     }
 
@@ -72,7 +72,7 @@ public sealed class StatsTracker
         return svcTime;
     }
 
-    public Stats GetStats(bool reset = true)
+    public Stats GetStats(bool reset)
     {
         var ticks = GetTicks();
 

@@ -39,16 +39,25 @@ public sealed class MonitoringService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            //var ms = new MemoryStream();
+            //var writer = new Utf8JsonWriter(ms);
+            //_xBar.MetricsToJson(writer);
+            //writer.Dispose();
+
+            //var str = Encoding.UTF8.GetString(ms.ToArray());
+
+            //_logger.LogInformation(str);
+
             foreach (var channel in _xBar.GetChannels())
             {
-                var chatStats = channel.Statistics.GetStats();
+                var chatStats = channel.Statistics.GetStats(true);
 
                 //_logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime().ToString("dd/MM/yyyy HH:mm.fff"), chatStats.PublishRate);
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
                     if (!visitedSubs.Contains(subscription.Name))
                     {
-                        var stats = subscription.Statistics.GetStats();
+                        var stats = subscription.Statistics.GetStats(true);
 
                         visitedSubs.Add(subscription.Name);
 
@@ -58,15 +67,6 @@ public sealed class MonitoringService : BackgroundService
                         _logger.LogInformation("--- Subscription: [{subName}], Rates: {stats}", subscription.Name, intervalStats);
                         _logger.LogInformation("--- Subscription: [{subName}], Times: {stats}", subscription.Name, longTermStats);
                     }
-
-                    //var ms = new MemoryStream();
-                    //var writer = new Utf8JsonWriter(ms);
-                    //_xBar.MetricsToJson(writer);
-                    //writer.Dispose();
-
-                    //var str = Encoding.UTF8.GetString(ms.ToArray());
-
-                    //_logger.LogInformation(str);
                 }
             }
 

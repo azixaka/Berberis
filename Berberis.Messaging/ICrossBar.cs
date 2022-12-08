@@ -16,6 +16,7 @@ public interface ICrossBar
     ValueTask Publish<TBody>(string channel, TBody body, string key, bool store);
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId);
     ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from);
+    ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from, long tagA);
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token = default);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string subscriptionName, CancellationToken token = default);

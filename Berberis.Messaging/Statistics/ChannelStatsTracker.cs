@@ -15,7 +15,7 @@ public sealed class ChannelStatsTracker
 
     internal void IncNumOfPublishedMessages() => Interlocked.Increment(ref _totalMessages);
 
-    public ChannelStats GetStats(bool reset = true)
+    public ChannelStats GetStats(bool reset)
     {
         var ticks = GetTicks();
 

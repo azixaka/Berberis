@@ -142,9 +142,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from)
+    public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from, long tagA)
     {
-        var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), MessageType.ChannelUpdate, correlationId, key, 0, from, body);
+        var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), MessageType.ChannelUpdate, correlationId, key, 0, from, body, tagA);
 
         return Publish(channelName, message, store);
     }
@@ -154,7 +154,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var channel = GetSystemChannel(channelName);
         if (channel != null)
         {
-            var msg = new Message<TBody>(0, 0, MessageType.SystemTrace, 0, null, 0, null, body);
+            var msg = new Message<TBody>(0, 0, MessageType.SystemTrace, 0, null, 0, null, body, 0);
 
             foreach (var (_, subObj) in channel.Subscriptions)
             {
@@ -430,7 +430,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             var deleted = messageStore.TryDelete(key);
             if (deleted)
             {
-                Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelDelete, 0, null, 0, null, default));
+                Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelDelete, 0, null, 0, null, default, 0));
                 return true;
             }
         }
@@ -447,7 +447,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             messageStore.Reset();
         }
 
-        Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelReset, 0, null, 0, null, default));
+        Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelReset, 0, null, 0, null, default, 0));
     }   
 
     public bool TryDeleteChannel(string channelName)

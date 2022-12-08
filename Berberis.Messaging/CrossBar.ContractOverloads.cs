@@ -6,10 +6,12 @@ partial class CrossBar
 {
     public ValueTask Publish<TBody>(string channel, Message<TBody> message) => Publish(channel, message, false);
 
-    public ValueTask Publish<TBody>(string channel, TBody body) => Publish(channel, body, 0, null, false, null);
-    public ValueTask Publish<TBody>(string channel, TBody body, string from) => Publish(channel, body, 0, null, false, from);
-    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish(channel, body, correlationId, null, false, null);
-    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish(channel, body, 0, key, store, null);
+    public ValueTask Publish<TBody>(string channel, TBody body) => Publish(channel, body, 0, null, false, null, 0);
+    public ValueTask Publish<TBody>(string channel, TBody body, string from) => Publish(channel, body, 0, null, false, from, 0);
+    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId) => Publish(channel, body, correlationId, null, false, null, 0);    
+    public ValueTask Publish<TBody>(string channel, TBody body, string key, bool store) => Publish(channel, body, 0, key, store, null, 0);
+    public ValueTask Publish<TBody>(string channel, TBody body, long correlationId, string key, bool store, string from) 
+                                                        => Publish(channel, body, correlationId, key, store, from, 0);
 
     public ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token)
         => Subscribe(channel, handler, null, false, SlowConsumerStrategy.SkipUpdates, null, TimeSpan.Zero, default, token);
