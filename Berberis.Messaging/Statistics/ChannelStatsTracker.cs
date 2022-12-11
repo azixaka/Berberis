@@ -13,6 +13,11 @@ public sealed class ChannelStatsTracker
     private long _lastTicks;
     private object _syncObj = new();
 
+    public ChannelStatsTracker()
+    {
+        _lastTicks = GetTicks();
+    }
+
     internal void IncNumOfPublishedMessages() => Interlocked.Increment(ref _totalMessages);
 
     public ChannelStats GetStats(bool reset)

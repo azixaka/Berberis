@@ -21,7 +21,7 @@ public sealed class CompressorBlockService : BackgroundService
             msg =>
             {
                 var value = $"compressed={msg.Body}";
-                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(CompressorBlockService));
+                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(CompressorBlockService), msg.TagA);
 
                 return ValueTask.CompletedTask;
             }, nameof(CompressorBlockService), fetchState: true);

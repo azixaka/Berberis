@@ -40,6 +40,8 @@ public sealed class StatsTracker
             _latencyPercentile = new(statsOptions.Percentile!.Value, statsOptions.Alpha, statsOptions.Delta);
             _svcTimePercentile = new(statsOptions.Percentile!.Value, statsOptions.Alpha, statsOptions.Delta);
         }
+
+        _lastTicks = GetTicks();
     }
 
     public StatsOptions StatsOptions { get; }

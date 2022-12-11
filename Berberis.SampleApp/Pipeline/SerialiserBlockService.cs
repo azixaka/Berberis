@@ -21,7 +21,7 @@ public sealed class SerialiserBlockService : BackgroundService
             msg =>
             {
                 var value = $"serialised={msg.Body}";
-                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(SerialiserBlockService));
+                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(SerialiserBlockService), msg.TagA);
 
                 return ValueTask.CompletedTask;
             }, nameof(SerialiserBlockService), fetchState: true);

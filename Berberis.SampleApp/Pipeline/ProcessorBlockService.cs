@@ -21,7 +21,7 @@ public sealed class ProcessorBlockService : BackgroundService
             msg =>
             {
                 var value = $"processed={msg.Body}";
-                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(ProcessorBlockService));
+                _ = _xBar.Publish(destination, value, msg.CorrelationId, msg.Key, true, nameof(ProcessorBlockService), msg.TagA);
 
                 return ValueTask.CompletedTask;
             }, nameof(ProcessorBlockService), fetchState: true);

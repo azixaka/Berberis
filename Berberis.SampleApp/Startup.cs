@@ -22,11 +22,11 @@ public sealed class Startup
         services.AddOptions();
 
         services.AddSingleton<ICrossBar, CrossBar>()
-                .AddHostedService<MonitoringService>()
+                //.AddHostedService<MonitoringService>()
                 //.AddHostedService<StockPriceProducerService>()
                 //.AddHostedService<StockPriceConsumerService>()
-                .AddHostedService<StockPriceSeparateChannelsProducerService>()
-                .AddHostedService<StockPriceWildcardConsumerService>()
+                //.AddHostedService<StockPriceSeparateChannelsProducerService>()
+                //.AddHostedService<StockPriceWildcardConsumerService>()
                 //.AddHostedService<StockPriceRecorderService>()
                 //.AddHostedService<StockPricePlayerService>()
                 //.AddHostedService<StatefulProducerService>()
@@ -40,13 +40,13 @@ public sealed class Startup
                 //.AddHostedService<ProcessesConsumerService2>()
                 ;
 
-        //services.AddHostedService<DataInputBlockService>()
-        //        .AddHostedService<DecompressorBlockService>()
-        //        .AddHostedService<DeserialiserBlockService>()
-        //        .AddHostedService<ProcessorBlockService>()
-        //        .AddHostedService<SerialiserBlockService>()
-        //        .AddHostedService<CompressorBlockService>()
-        //        .AddHostedService<DataOutputBlockService>();
+        services.AddHostedService<DataInputBlockService>()
+                .AddHostedService<DecompressorBlockService>()
+                .AddHostedService<DeserialiserBlockService>()
+                .AddHostedService<ProcessorBlockService>()
+                .AddHostedService<SerialiserBlockService>()
+                .AddHostedService<CompressorBlockService>()
+                .AddHostedService<DataOutputBlockService>();
     }
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env)
