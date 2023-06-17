@@ -1,4 +1,6 @@
 ﻿using Berberis.Messaging;
+using Berberis.StatsReporters;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -48,11 +50,13 @@ public sealed class MonitoringService : BackgroundService
 
             //_logger.LogInformation(str);
 
+            var start = ServiceTimeTracker.GetTicks();
+
             foreach (var channel in _xBar.GetChannels())
             {
                 var chatStats = channel.Statistics.GetStats(true);
 
-                //_logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:N2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime().ToString("dd/MM/yyyy HH:mm.fff"), chatStats.PublishRate);
+                //_logger.LogInformation("Channel:{channel}, Type:{type}, LastBy: {lastBy}, LastAt: {lastAt}, Rate: {rate:F2}", channel.Name, channel.BodyType.Name, channel.LastPublishedBy, channel.LastPublishedAt.ToUniversalTime().ToString("dd/MM/yyyy HH:mm.fff"), chatStats.PublishRate);
                 foreach (var subscription in _xBar.GetChannelSubscriptions(channel.Name))
                 {
                     if (!visitedSubs.Contains(subscription.Name))
@@ -61,8 +65,8 @@ public sealed class MonitoringService : BackgroundService
 
                         visitedSubs.Add(subscription.Name);
 
-                        var intervalStats = $"Int: {stats.IntervalMs:N0} ms; Deq: {stats.DequeueRate:N1} msg/s; Pcs: {stats.ProcessRate:N1} msg/s; EnqT: {stats.TotalEnqueuedMessages:N0}; DeqT: {stats.TotalDequeuedMessages:N0}; PcsT: {stats.TotalProcessedMessages:N0};";
-                        var longTermStats = $"P90 Lat: {stats.PercentileLatencyTimeMs:N4}; AvgLat: {stats.AvgLatencyTimeMs:N4}; P90 Svc: {stats.PercentileServiceTimeMs:N4}; Avg Svc: {stats.AvgServiceTimeMs:N4}; AvgRsp: {stats.AvgResponseTime:N4} ms; Conf: {stats.ConflationRatio:N4}; QLen: {stats.QueueLength:N0}; Lat/Rsp: {stats.LatencyToResponseTimeRatio:N2}; EAAM: {stats.EstimatedAvgActiveMessages:N4};";
+                        var intervalStats = $"Int: {stats.IntervalMs:F0} ms; Deq: {stats.DequeueRate:F1} msg/s; Pcs: {stats.ProcessRate:F1} msg/s; EnqT: {stats.TotalEnqueuedMessages:F0}; DeqT: {stats.TotalDequeuedMessages:F0}; PcsT: {stats.TotalProcessedMessages:F0};";
+                        var longTermStats = $"P90 Lat: {stats.PercentileLatencyTimeMs:F4}; AvgLat: {stats.AvgLatencyTimeMs:F4}; P90 Svc: {stats.PercentileServiceTimeMs:F4}; Avg Svc: {stats.AvgServiceTimeMs:F4}; AvgRsp: {stats.AvgResponseTime:F4} ms; Conf: {stats.ConflationRatio:F4}; QLen: {stats.QueueLength:F0}; Lat/Rsp: {stats.LatencyToResponseTimeRatio:F2}; EAAM: {stats.EstimatedAvgActiveMessages:F4};";
 
                         _logger.LogInformation("--- Subscription: [{subName}], Rates: {stats}", subscription.Name, intervalStats);
                         _logger.LogInformation("--- Subscription: [{subName}], Times: {stats}", subscription.Name, longTermStats);

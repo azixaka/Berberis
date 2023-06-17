@@ -1,13 +1,12 @@
 ﻿using Berberis.Messaging;
 using Berberis.StatsReporters;
-using System.Collections.Concurrent;
-using System.Diagnostics;
 
 namespace Berberis.SampleApp;
 
 public sealed class DataOutputBlockService : BackgroundService
 {
     private readonly ICrossBar _xBar;
+    private ServiceTimeTracker _globalTracker;
 
     public DataOutputBlockService(ICrossBar xBar)
     {
@@ -24,6 +23,8 @@ public sealed class DataOutputBlockService : BackgroundService
                                     new PercentileOptions(0.9f),
                                     new PercentileOptions(0.99f)
                                 };
+
+        _globalTracker = new ServiceTimeTracker(percentileOptions: trackerOptions);
 
         var keyTrackers = new Dictionary<string, ServiceTimeTracker>();
 
@@ -49,20 +50,29 @@ public sealed class DataOutputBlockService : BackgroundService
                 }
 
                 tracker.RecordServiceTime(msg.TagA);
+                _globalTracker.RecordServiceTime(msg.TagA);
 
                 return ValueTask.CompletedTask;
             }, nameof(DataOutputBlockService), fetchState: true);
 
         var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 
+        var nsr = new NetworkStatsReporter();
+
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
+            var s = nsr.GetStats();
+
+
+            var stats = _globalTracker.GetStats(true);
+            Console.WriteLine($"[*] Avg:{stats.AvgServiceTimeMs:F2} | Min:{stats.MinServiceTimeMs:F2} | Max:{stats.MaxServiceTimeMs:F2} | Rate:{stats.ProcessRate:F0} | {string.Join(';', stats.PercentileValues.Select(t => $"{t.percentile * 100}% = {t.value:F2}"))}");
+
             lock (keyTrackers)
             {
                 foreach (var (key, tracker) in keyTrackers)
                 {
-                    var stats = tracker.GetStats(true);
-                    Console.WriteLine($"[{key}] Avg:{stats.AvgServiceTimeMs:N2} | Min:{stats.MinServiceTimeMs:N2} | Max:{stats.MaxServiceTimeMs:N2} | Rate:{stats.ProcessRate:N0} | {string.Join(';', stats.PercentileValues.Select(t => $"{t.percentile * 100}% = {t.value:N2}"))}");
+                    stats = tracker.GetStats(true);
+                    Console.WriteLine($"[{key}] Avg:{stats.AvgServiceTimeMs:F2} | Min:{stats.MinServiceTimeMs:F2} | Max:{stats.MaxServiceTimeMs:F2} | Rate:{stats.ProcessRate:F0} | {string.Join(';', stats.PercentileValues.Select(t => $"{t.percentile * 100}% = {t.value:F2}"))}");
                 }
             }
         }

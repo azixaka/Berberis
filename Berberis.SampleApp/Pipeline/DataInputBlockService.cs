@@ -14,7 +14,7 @@ public sealed class DataInputBlockService : BackgroundService
     {
         _xBar = xBar;
         _minTickInterval = 0;
-        _maxTickInterval = 5;
+        _maxTickInterval = 2;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -30,20 +30,24 @@ public sealed class DataInputBlockService : BackgroundService
 
             for (long i = 0; i < long.MaxValue; i++)
             {
-                _ = _xBar.Publish(destination, i, _xBar.GetNextCorrelationId(), key.ToString(), store: true, nameof(DataInputBlockService), ServiceTimeTracker.GetTicks());
+                var ticks = ServiceTimeTracker.GetTicks();
+                Thread.SpinWait(500);
+
+                _ = _xBar.Publish(destination, i, _xBar.GetNextCorrelationId(), key.ToString(), store: true, nameof(DataInputBlockService), ticks);
 
                 if (key++ > 10)
                     key = 0;
 
                 var waitMs = random.Next(_minTickInterval, _maxTickInterval);
 
-                var sw = Stopwatch.StartNew();
-                var spin = new SpinWait();
+                //var sw = Stopwatch.StartNew();
+                //var spin = new SpinWait();
 
-                while (sw.ElapsedMilliseconds < waitMs)
-                {
-                    spin.SpinOnce();
-                }
+                //while (sw.Elapsed.TotalMilliseconds < waitMs)
+                //{
+                //    spin.SpinOnce();
+                //}
+
             }
         }
     }
