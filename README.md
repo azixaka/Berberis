@@ -14,6 +14,14 @@ Berberis CrossBar is a high-performance, allocation-free in-process message brok
 
 - **Comprehensive Observability**: With Berberis CrossBar, you can trace not only messages but also a wide array of statistics, including service time, latencies, rates, sources, percentiles, and more. This empowers you to gain deeper insights into the performance of your messaging system and make data-driven optimizations.
 
+- **Stateful Channels**: Berberis CrossBar offers stateful channels, which store the latest published messages by key. This allows new subscribers to fetch the most recent state of the channel upon subscription, keeping everyone up-to-date and in sync.
+
+- **Channel Reset and Message Deletions**: Berberis CrossBar also supports channel resets, allowing you to clear a channel and start fresh when necessary. Individual message deletions are also supported, ensuring that you have full control over the data in your channels.
+
+- **Wildcard Subscriptions**: The system supports wildcard subscription patterns like '*' and '>', offering you more flexibility and control over the messages you subscribe to.
+
+- **Metrics Export**: With the MetricsToJson extension method, you can easily generate a comprehensive JSON report of metrics from all CrossBar channels and each subscription. This feature provides an efficient way to monitor and optimize the performance of your messaging system.
+
 ## Getting Started
 
 You can add Berberis CrossBar to your project through NuGet:
@@ -49,10 +57,11 @@ Here is a basic usage example:
 Conflation and state fetching example:
 
 ```csharp	
-	using var subscription = xBar.Subscribe<int>(destination,
-												 msg => ProcessMessage(msg),
-												 fetchState: true,
-												 TimeSpan.FromSeconds(1));	
+	using var subscription = 
+					xBar.Subscribe<int>(destination,
+									 msg => ProcessMessage(msg),
+									 fetchState: true,
+									 TimeSpan.FromSeconds(1));	
 ```
 
 For a more detailed guide on how to use Berberis CrossBar, please refer to our documentation.
