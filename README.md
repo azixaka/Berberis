@@ -28,7 +28,7 @@ Here is a basic usage example:
 
 ```csharp
 	ICrossBar xBar = new CrossBar();
-		var destination = "number.inc";	
+	var destination = "number.inc";	
 	
 	using var subscription = xBar.Subscribe<int>(destination, msg => ProcessMessage(msg));
 	
@@ -38,10 +38,21 @@ Here is a basic usage example:
 	}
 	
 	ValueTask ProcessMessage(Message<long> message)
-		{
+	{
 		Console.WriteLine(message.Body);
-			return ValueTask.CompletedTask;	
+		return ValueTask.CompletedTask;	
 	}
+	
+	await subscription.MessageLoop;
+```
+
+Conflation and state fetching example:
+
+```csharp	
+	using var subscription = xBar.Subscribe<int>(destination,
+												 msg => ProcessMessage(msg),
+												 fetchState: true,
+												 TimeSpan.FromSeconds(1));	
 ```
 
 For a more detailed guide on how to use Berberis CrossBar, please refer to our documentation.
