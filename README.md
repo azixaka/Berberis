@@ -28,7 +28,7 @@ Here is a basic usage example:
 
 ```csharp
 	ICrossBar xBar = new CrossBar();
-    var destination = "number.inc";	
+		var destination = "number.inc";	
 	
 	using var subscription = xBar.Subscribe<int>(destination, msg => ProcessMessage(msg));
 	
@@ -38,9 +38,9 @@ Here is a basic usage example:
 	}
 	
 	ValueTask ProcessMessage(Message<long> message)
-    {
+		{
 		Console.WriteLine(message.Body);
-        return ValueTask.CompletedTask;	
+			return ValueTask.CompletedTask;	
 	}
 ```
 
