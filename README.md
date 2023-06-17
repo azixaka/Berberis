@@ -22,13 +22,35 @@ You can add Berberis CrossBar to your project through NuGet:
 Install-Package Berberis.Messaging
 ```
 
+## Quick Start
+
+Here is a basic usage example:
+
+```csharp
+	ICrossBar xBar = new CrossBar();
+    var destination = "number.inc";	
+	
+	using var subscription = xBar.Subscribe<int>(destination, msg => ProcessMessage(msg));
+	
+	for (int i = 0; i < 1000; i++)
+	{
+		xBar.Publish(destination, i);
+	}
+	
+	ValueTask ProcessMessage(Message<long> message)
+    {
+		Console.WriteLine(message.Body);
+        return ValueTask.CompletedTask;	
+	}
+```
+
 For a more detailed guide on how to use Berberis CrossBar, please refer to our documentation.
 
 Contributing
 We appreciate any contributions to improve Berberis CrossBar. Please read our Contributing Guide for guidelines about how to proceed.
 
 License
-Berberis CrossBar is licensed under the MIT license.
+Berberis CrossBar is licensed under the GPL-3 license.
 
 Contact
 If you have any questions or suggestions, feel free to open an issue on GitHub.
