@@ -34,8 +34,3 @@ Contact
 If you have any questions or suggestions, feel free to open an issue on GitHub.
 
 Thank you for considering Berberis CrossBar for your messaging needs!
-
-
-Please replace the `()` in `[documentation]()`, `[Contributing Guide]()`, and `[MIT license]()` with the actual links to your documentation, contributing guide, and license file respectively, if available.
-
-This README.md provides a brief description of your project, highlights its main features, and gives a simple guide on how to get started with the project. It also provides information on how to contribute to the project, its license, and how to contact you. This should give your users a good overview of what Berberis CrossBar is and how they can use it.
