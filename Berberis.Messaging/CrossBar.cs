@@ -321,38 +321,61 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
-    private bool MatchesChannelPattern(string channelName, string pattern)
+    private static bool MatchesChannelPattern(string channelName, string pattern)
     {
-        int recursivePosition = pattern.IndexOf('>');
+        var patternStartPosition = 0;
+        var channelStartPosition = 0;
 
-        if (recursivePosition > 0)
+        while (true)
         {
-            var prefix = pattern.AsSpan().Slice(0, recursivePosition);
-            return channelName.AsSpan().StartsWith(prefix);
+            var patternSeparatorPosition = pattern.IndexOf('.', patternStartPosition);
+            var channelSeparatorPosition = channelName.IndexOf('.', channelStartPosition);
+
+            var patternPart = patternSeparatorPosition < 0
+                ? pattern.AsSpan(patternStartPosition)
+                : pattern.AsSpan(patternStartPosition, patternSeparatorPosition - patternStartPosition);
+
+            if (patternPart.Length == 1 && patternPart[0] == '*')
+            {
+                goto skip;
+            }
+            
+            if (patternPart.Length == 1 && patternPart[0] == '>')
+            {
+                return true;
+            }
+
+            var channelPart = channelSeparatorPosition < 0
+                ? channelName.AsSpan(channelStartPosition)
+                : channelName.AsSpan(channelStartPosition, channelSeparatorPosition - channelStartPosition);
+
+            if (!patternPart.SequenceEqual(channelPart))
+            {
+                return false;
+            }
+            
+            skip:
+            var patternRemaining = patternSeparatorPosition >= 0 && patternSeparatorPosition + 1 < pattern.Length;
+            var channelRemaining = channelSeparatorPosition >= 0 && channelSeparatorPosition + 1 < channelName.Length;
+
+            if (patternRemaining ^ channelRemaining)
+            {
+                return false;
+            }
+
+            if (!(patternRemaining || channelRemaining))
+            {
+                return true;
+            }
+
+            patternStartPosition = patternSeparatorPosition + 1;
+            channelStartPosition = channelSeparatorPosition + 1;
         }
-
-        //todo: this is used only when subscribing/unsubscribing (rare) and creating a new channel (rare), so allocations don't matter in this case
-        //it is however nice to change this to a span.slice by '.' to reduce allocations
-        //also two overloads could be added, that receives channelParts and another one receiving patternParts for ProcessWildcardSubscritptions and FindMatchingChannels accordingly
-
-        var channelParts = channelName.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        var patternParts = pattern.Split('.', StringSplitOptions.RemoveEmptyEntries);
-
-        if (channelParts.Length != patternParts.Length)
-            return false;
-
-        int k = 0;
-        while (k < channelParts.Length && (channelParts[k] == patternParts[k] || patternParts[k] == "*"))
-        {
-            k++;
-        }
-
-        return k == channelParts.Length;
     }
 
-    private static bool IsWildcardSubscription(string channelName) => channelName.Contains(">") || channelName.Contains("*");
+    private static bool IsWildcardSubscription(string channelName) => channelName.IndexOfAny(new[] { '>', '*' }) >= 0;
 
-    private static bool IsSystemChannel(string channelName) => channelName.StartsWith("$");
+    private static bool IsSystemChannel(string channelName) => channelName.StartsWith('$');
 
     private ISubscription SubscribeSystem<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler, string? subscriptionName, CancellationToken token = default)
     {
