@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting.WindowsServices;
 using Serilog;
 using System.Reflection;
 
@@ -11,44 +9,37 @@ public static class Program
     {
         var serviceEnvironment = new ServiceEnvironment("Trayport Service App", args);
 
-        var webHost = WebHost.CreateDefaultBuilder(serviceEnvironment.WebHostArgs)
-            .UseKestrel()
-            .ConfigureKestrel(
-                (context, options) =>
-                {
-                    options.AllowSynchronousIO = true;
-                    options.Configure(context.Configuration.GetSection("Kestrel"));
-                })
+        var host = Host.CreateDefaultBuilder(serviceEnvironment.WebHostArgs)
             .UseContentRoot(serviceEnvironment.PathToContentRoot)
-            .ConfigureAppConfiguration(
-                (hostingContext, config) =>
+            .ConfigureAppConfiguration((hostingContext, config) =>
+            {
+                var env = hostingContext.HostingEnvironment;
+
+                if (env.IsDevelopment())
                 {
-                    var env = hostingContext.HostingEnvironment;
+                    config.SetBasePath(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!);
+                }
 
-                    if (env.IsDevelopment())
-                    {
-                        config.SetBasePath(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
-                    }
-
-                    config
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                        .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
-                        .AddEnvironmentVariables()
-                        .AddCommandLine(serviceEnvironment.WebHostArgs); // and here to allow overriding settings values
-                })
+                config
+                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true)
+                    .AddEnvironmentVariables()
+                    .AddCommandLine(serviceEnvironment.WebHostArgs);
+            })
             .UseSerilog((context, loggerConfiguration) =>
-               loggerConfiguration.ReadFrom.Configuration(context.Configuration))
-           .UseStartup<Startup>()
-           .Build();
+                loggerConfiguration.ReadFrom.Configuration(context.Configuration))
+            .ConfigureWebHostDefaults(webBuilder =>
+            {
+                webBuilder
+                    .UseKestrel((context, options) =>
+                    {
+                        options.AllowSynchronousIO = true;
+                        options.Configure(context.Configuration.GetSection("Kestrel"));
+                    })
+                    .UseStartup<Startup>();
+            })
+            .Build();
 
-        if (serviceEnvironment.IsService)
-        {
-            webHost.RunAsService();
-        }
-        else
-        {
-            webHost.Run();
-        }
+        host.Run();
     }
 }
-
