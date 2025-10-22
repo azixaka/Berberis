@@ -1,5 +1,6 @@
 # Berberis CrossBar Messaging
 
+[![CI](https://github.com/azixaka/Berberis/actions/workflows/ci.yml/badge.svg)](https://github.com/azixaka/Berberis/actions/workflows/ci.yml)
 [![Nuget](https://img.shields.io/nuget/v/Berberis.Messaging)](https://www.nuget.org/packages/Berberis.Messaging/)
 
 Berberis CrossBar is a high-performance, allocation-free in-process message broker designed for creating complex, high-speed pipelines within a single process. Built on the concept of typed channels, Berberis CrossBar serves as the bridge connecting publishers and subscribers within your application.

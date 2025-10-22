@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Display .NET info
+      run: dotnet --info
+
+    - name: Restore dependencies
+      run: dotnet restore Berberis.Messaging/Berberis.Messaging.csproj && dotnet restore tests/Berberis.Messaging.Tests/Berberis.Messaging.Tests.csproj
+
+    - name: Build
+      run: dotnet build Berberis.Messaging/Berberis.Messaging.csproj --configuration Release --no-restore --warnaserror && dotnet build tests/Berberis.Messaging.Tests/Berberis.Messaging.Tests.csproj --configuration Release --no-restore --warnaserror
+
+    - name: Test
+      run: dotnet test tests/Berberis.Messaging.Tests/Berberis.Messaging.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+      continue-on-error: false
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: '**/TestResults/**/*.trx'
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-reports
+        path: '**/TestResults/**/coverage.cobertura.xml'
+
+    - name: Build summary
+      if: always()
+      run: |
+        echo "## Build Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **.NET Version:** ${{ env.DOTNET_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Configuration:** Release" >> $GITHUB_STEP_SUMMARY
+        echo "- **Warnings as Errors:** Enabled" >> $GITHUB_STEP_SUMMARY
