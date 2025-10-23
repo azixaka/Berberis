@@ -131,6 +131,13 @@ public sealed partial class Subscription<TBody> : ISubscription
         return success;
     }
 
+    /// <summary>Notifies subscription that its channel is being deleted.</summary>
+    public void NotifyChannelDeletion()
+    {
+        var message = new Message<TBody>(0, 0, MessageType.ChannelDelete, 0, null, 0, null, default, 0);
+        TryWrite(message);
+    }
+
     internal bool TryFail(Exception ex) => _channel.Writer.TryComplete(ex);
 
     internal void StartSubscription(CancellationToken token) =>
@@ -324,7 +331,8 @@ public sealed partial class Subscription<TBody> : ISubscription
                     {
                         foreach (var (_, message) in state)
                         {
-                            var task = ProcessMessage(message, 0); //todo: latency for logging!
+                            var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
+                            var task = ProcessMessage(message, latencyTicks);
                             if (!task.IsCompleted)
                                 await task;
                         }
@@ -351,7 +359,8 @@ public sealed partial class Subscription<TBody> : ISubscription
                 {
                     maxSequenceId = Math.Max(maxSequenceId, message.Id);
 
-                    var task = ProcessMessage(message, 0);
+                    var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
+                    var task = ProcessMessage(message, latencyTicks);
                     if (!task.IsCompleted)
                         await task;
                 }

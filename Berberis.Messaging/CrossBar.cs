@@ -407,9 +407,17 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     private IReadOnlyCollection<Channel> FindMatchingChannels(string pattern)
-        => _channels.Where(kvp => MatchesChannelPattern(kvp.Key, pattern))
-                    .Select(kvp => kvp.Value.Value)
-                    .ToArray();
+    {
+        var result = new List<Channel>();
+        foreach (var kvp in _channels)
+        {
+            if (MatchesChannelPattern(kvp.Key, pattern))
+            {
+                result.Add(kvp.Value.Value);
+            }
+        }
+        return result.ToArray();
+    }
 
     private void ProcessWildcardSubscriptions(Channel channel)
     {
@@ -442,23 +450,76 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             return channelName.AsSpan().StartsWith(prefix);
         }
 
-        //todo: this is used only when subscribing/unsubscribing (rare) and creating a new channel (rare), so allocations don't matter in this case
-        //it is however nice to change this to a span.slice by '.' to reduce allocations
-        //also two overloads could be added, that receives channelParts and another one receiving patternParts for ProcessWildcardSubscritptions and FindMatchingChannels accordingly
+        // Span-based segment matching (allocation-free)
+        ReadOnlySpan<char> channelSpan = channelName.AsSpan();
+        ReadOnlySpan<char> patternSpan = pattern.AsSpan();
 
-        var channelParts = channelName.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        var patternParts = pattern.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        int channelSegments = CountSegments(channelSpan);
+        int patternSegments = CountSegments(patternSpan);
 
-        if (channelParts.Length != patternParts.Length)
+        if (channelSegments != patternSegments)
             return false;
 
-        int k = 0;
-        while (k < channelParts.Length && (channelParts[k] == patternParts[k] || patternParts[k] == "*"))
+        int channelPos = 0;
+        int patternPos = 0;
+
+        for (int i = 0; i < channelSegments; i++)
         {
-            k++;
+            var channelSegment = GetNextSegment(channelSpan, ref channelPos);
+            var patternSegment = GetNextSegment(patternSpan, ref patternPos);
+
+            // Wildcard '*' matches any segment
+            if (patternSegment.Length == 1 && patternSegment[0] == '*')
+                continue;
+
+            // Segments must match exactly
+            if (!channelSegment.SequenceEqual(patternSegment))
+                return false;
         }
 
-        return k == channelParts.Length;
+        return true;
+    }
+
+    private static int CountSegments(ReadOnlySpan<char> span)
+    {
+        if (span.Length == 0)
+            return 0;
+
+        int count = 0;
+        bool inSegment = false;
+
+        for (int i = 0; i < span.Length; i++)
+        {
+            if (span[i] == '.')
+            {
+                inSegment = false;
+            }
+            else if (!inSegment)
+            {
+                inSegment = true;
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static ReadOnlySpan<char> GetNextSegment(ReadOnlySpan<char> span, ref int pos)
+    {
+        // Skip dots (handles empty segments like RemoveEmptyEntries)
+        while (pos < span.Length && span[pos] == '.')
+            pos++;
+
+        if (pos >= span.Length)
+            return ReadOnlySpan<char>.Empty;
+
+        int start = pos;
+
+        // Find end of segment
+        while (pos < span.Length && span[pos] != '.')
+            pos++;
+
+        return span.Slice(start, pos - start);
     }
 
     private static bool IsWildcardSubscription(string channelName) => channelName.Contains(">") || channelName.Contains("*");
@@ -582,7 +643,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             {
                 if (!subscription.IsWildcard)
                 {
-                    //todo: broadcast channel deletion prior to disposing? but then how do we know it's been processed and not stuck in its queue
+                    // Notify subscription before disposal (best-effort delivery)
+                    subscription.NotifyChannelDeletion();
                     subscription.TryDispose();
                 }
             }

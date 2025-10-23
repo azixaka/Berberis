@@ -33,10 +33,22 @@ public sealed class Recording<TBody> : IRecording
         _ready = true;
 
         var cts = token == default ? _cts : CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
-        MessageLoop = Task.WhenAll(_subscription.MessageLoop, PipeReaderLoop(cts.Token));
+        MessageLoop = MonitorTasksAsync(_subscription.MessageLoop, PipeReaderLoop(cts.Token), cts);
     }
 
-    //todo: change MessageLoop to do WaitAny and handle cases when externally someone disposes our underlying subscription, we should just cancel the PipeReaderLoop too
+    private static async Task MonitorTasksAsync(Task subscriptionTask, Task pipeReaderTask, CancellationTokenSource cts)
+    {
+        var completedTask = await Task.WhenAny(subscriptionTask, pipeReaderTask);
+
+        // If subscription completes first, cancel pipe reader immediately
+        if (completedTask == subscriptionTask)
+        {
+            cts.Cancel();
+        }
+
+        // Wait for both tasks to complete (may throw)
+        await Task.WhenAll(subscriptionTask, pipeReaderTask);
+    }
     /// <summary>Gets the underlying subscription that receives messages.</summary>
     public ISubscription UnderlyingSubscription => _subscription;
 

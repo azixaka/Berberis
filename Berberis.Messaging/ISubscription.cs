@@ -30,4 +30,7 @@ public interface ISubscription : IDisposable
 
     /// <summary>Gets handler timeout count.</summary>
     long GetTimeoutCount();
+
+    /// <summary>Notifies subscription that its channel is being deleted.</summary>
+    void NotifyChannelDeletion();
 }
