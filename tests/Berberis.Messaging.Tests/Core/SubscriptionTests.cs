@@ -812,4 +812,139 @@ public class SubscriptionTests
         await Task.WhenAny(subscription.MessageLoop, Task.Delay(2000));
         subscription.MessageLoop.IsCompleted.Should().BeTrue();
     }
+
+    // Coverage Boost: Channel deletion notification
+    [Fact]
+    public async Task Subscription_ChannelDeletion_ReceivesDeleteMessage()
+    {
+        // VALIDATES: NotifyChannelDeletion sends MessageType.ChannelDelete (lines 135-139 Subscription.cs)
+        // VALIDATES: Subscription receives and handles channel deletion notification
+        // IMPACT: Covers NotifyChannelDeletion internal method
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var receivedMessages = new List<MessageType>();
+        var channelDeleteReceived = new TaskCompletionSource<bool>();
+
+        var subscription = xBar.Subscribe<string>(
+            "deletable.channel",
+            msg =>
+            {
+                receivedMessages.Add(msg.MessageType);
+                if (msg.MessageType == MessageType.ChannelDelete)
+                {
+                    channelDeleteReceived.TrySetResult(true);
+                }
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Publish a normal message first
+        await xBar.Publish("deletable.channel", TestHelpers.CreateTestMessage("normal"), false);
+        await Task.Delay(50);
+
+        // Act - Delete the channel (triggers NotifyChannelDeletion)
+        var deleted = xBar.TryDeleteChannel("deletable.channel");
+
+        // Assert
+        deleted.Should().BeTrue("channel should be deleted");
+
+        // Wait for ChannelDelete message
+        var received = await Task.WhenAny(channelDeleteReceived.Task, Task.Delay(1000));
+        received.Should().Be(channelDeleteReceived.Task, "should receive ChannelDelete message");
+
+        receivedMessages.Should().Contain(MessageType.ChannelDelete, "subscription should receive delete notification");
+    }
+
+    // Coverage Boost: Handler exceptions and error paths
+    [Fact]
+    public async Task Subscription_HandlerThrowsException_ContinuesProcessing()
+    {
+        // VALIDATES: Exception handling in handler (lines 435-446 Subscription.cs)
+        // VALIDATES: Subscription continues after handler exception
+        // IMPACT: Covers exception catch block
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var processedMessages = new List<int>();
+        var exceptionCount = 0;
+
+        var subscription = xBar.Subscribe<int>(
+            "test.channel",
+            msg =>
+            {
+                if (msg.Body == 2)
+                {
+                    exceptionCount++;
+                    throw new InvalidOperationException("Test exception");
+                }
+                processedMessages.Add(msg.Body);
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Act - Publish messages, one will throw
+        await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(1), false);
+        await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(2), false); // Will throw
+        await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(3), false);
+
+        await Task.Delay(200);
+
+        // Assert - Should continue processing after exception
+        processedMessages.Should().Contain(1);
+        processedMessages.Should().Contain(3);
+        exceptionCount.Should().Be(1, "exception should have been thrown once");
+
+        subscription.Dispose();
+    }
+
+    // Coverage Boost: Message tracing paths
+    [Fact]
+    public async Task Subscription_WithMessageTracing_TracesMessages()
+    {
+        // VALIDATES: Message tracing code (lines 182-194, 455+ Subscription.cs)
+        // VALIDATES: Tracing publishes to system channel
+        // IMPACT: Covers tracing paths when MessageTracingEnabled = true
+
+        // Arrange - Create CrossBar with tracing enabled
+        var xBar = TestHelpers.CreateTestCrossBar();
+        xBar.MessageTracingEnabled = true;
+
+        var tracingMessages = new List<MessageTrace>();
+
+        // Subscribe to tracing channel
+        var tracingSub = xBar.Subscribe<MessageTrace>(
+            xBar.TracingChannel,
+            msg =>
+            {
+                tracingMessages.Add(msg.Body!);
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Create a regular subscription
+        var receivedMessages = new List<string>();
+        var sub = xBar.Subscribe<string>(
+            "traced.channel",
+            msg =>
+            {
+                receivedMessages.Add(msg.Body!);
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Act - Publish messages (should generate trace messages)
+        await xBar.Publish("traced.channel", TestHelpers.CreateTestMessage("msg1"), false);
+        await xBar.Publish("traced.channel", TestHelpers.CreateTestMessage("msg2"), false);
+
+        await Task.Delay(200);
+
+        // Assert
+        receivedMessages.Should().HaveCount(2);
+        tracingMessages.Should().NotBeEmpty("tracing should have captured events");
+        tracingMessages.Should().Contain(t => t.OpType == OpType.SubscriptionDequeue, "should trace dequeue operations");
+
+        sub.Dispose();
+        tracingSub.Dispose();
+    }
 }

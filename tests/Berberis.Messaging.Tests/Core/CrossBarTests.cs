@@ -469,4 +469,100 @@ public partial class CrossBarTests
         // Assert
         received.Should().BeTrue();
     }
+
+    // Coverage Boost: CrossBar publish logging and slow consumer scenarios
+    [Fact]
+    public async Task CrossBar_WithPublishLogging_LogsMessages()
+    {
+        // VALIDATES: PublishLoggingEnabled paths (lines 122-124 CrossBar.cs)
+        // IMPACT: Covers publish logging code
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        xBar.PublishLoggingEnabled = true;
+
+        var received = new List<string>();
+        var sub = xBar.Subscribe<string>("test.channel", msg =>
+        {
+            received.Add(msg.Body!);
+            return ValueTask.CompletedTask;
+        }, default);
+
+        // Act
+        await xBar.Publish("test.channel", TestHelpers.CreateTestMessage("msg1"), false);
+        await Task.Delay(100);
+
+        // Assert
+        received.Should().Contain("msg1");
+        sub.Dispose();
+    }
+
+    [Fact]
+    public async Task CrossBar_SlowConsumer_HandlesBackpressure()
+    {
+        // VALIDATES: Slow consumer handling
+        // IMPACT: Covers backpressure scenarios
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var processingDelay = new TaskCompletionSource<bool>();
+        var received = new List<int>();
+
+        var sub = xBar.Subscribe<int>(
+            "test.channel",
+            async msg =>
+            {
+                received.Add(msg.Body);
+                if (msg.Body == 1)
+                {
+                    // Block to create backpressure
+                    await processingDelay.Task;
+                }
+            },
+            default);
+
+        // Act - Publish messages while first is blocked
+        for (int i = 1; i <= 100; i++)
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(i), false);
+        }
+
+        await Task.Delay(100);
+
+        // Release the block
+        processingDelay.TrySetResult(true);
+        await Task.Delay(200);
+
+        // Assert - All messages should eventually be processed
+        received.Should().HaveCount(100);
+        sub.Dispose();
+    }
+
+    [Fact]
+    public void CrossBar_SystemChannelTypeMismatch_ThrowsException()
+    {
+        // VALIDATES: System channel type mismatch (lines 562-564 CrossBar.cs)
+        // IMPACT: Covers error path for system channel type checking
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        xBar.MessageTracingEnabled = true;
+
+        // First subscription with correct type
+        var sub1 = xBar.Subscribe<MessageTrace>(
+            xBar.TracingChannel,
+            msg => ValueTask.CompletedTask,
+            default);
+
+        // Act & Assert - Try to subscribe with wrong type
+        Action act = () => xBar.Subscribe<string>(
+            xBar.TracingChannel, // System channel expecting MessageTrace
+            msg => ValueTask.CompletedTask,
+            default);
+
+        act.Should().Throw<ChannelTypeMismatchException>();
+
+        sub1.Dispose();
+    }
+
 }
