@@ -236,19 +236,21 @@ public class FeatureCombinationTests
 
         var received = new List<string>();
         var receiveLock = new object();
+        var suspensionReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var subscription = xBar.Subscribe<string>(
             "test.channel",
-            msg =>
+            async msg =>
             {
+                await suspensionReady.Task; // Wait until test has set suspension
                 lock (receiveLock) { received.Add(msg.Body!); }
-                return ValueTask.CompletedTask;
             },
             fetchState: true,
             token: default);
 
-        // Immediately suspend
+        // Immediately suspend before allowing any handlers to proceed
         subscription.IsProcessingSuspended = true;
+        suspensionReady.SetResult(); // Now allow handlers to try to proceed (they'll be blocked by suspension)
 
         await Task.Delay(500); // Wait - state should NOT be delivered
 
