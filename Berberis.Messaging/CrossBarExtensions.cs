@@ -2,10 +2,12 @@
 
 namespace Berberis.Messaging;
 
+/// <summary>CrossBar extension methods.</summary>
 public static class CrossBarExtensions
 {
     private const string DateTimeFormat = "dd/MM/yyyy HH:mm:ss.fff";
 
+    /// <summary>Writes metrics to JSON.</summary>
     public static void MetricsToJson(this ICrossBar crossBar, Utf8JsonWriter writer, bool useMnemonics = false, bool resetStats = true)
     {
         writer.WriteStartObject();

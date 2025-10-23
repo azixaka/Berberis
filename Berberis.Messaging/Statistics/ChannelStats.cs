@@ -1,5 +1,6 @@
 ﻿namespace Berberis.Messaging.Statistics;
 
+/// <summary>Channel statistics snapshot.</summary>
 public readonly struct ChannelStats
 {
     /// <summary>
@@ -17,6 +18,9 @@ public readonly struct ChannelStats
     /// </summary>
     public readonly long TotalMessages;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChannelStats"/> struct.
+    /// </summary>
     public ChannelStats(float intervalMs,
         float messagesPerSecond,
         long totalMessages)
@@ -26,5 +30,6 @@ public readonly struct ChannelStats
         TotalMessages = totalMessages;
     }
 
+    /// <summary>Returns a string representation of the channel statistics.</summary>
     public override string ToString() => $"Int: {IntervalMs:N0} ms; Rate: {PublishRate:N1} msg/s; Total: {TotalMessages:N0}";
 }

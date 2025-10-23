@@ -6,6 +6,10 @@ using System.IO.Pipelines;
 
 namespace Berberis.Recorder;
 
+/// <summary>
+/// Records messages from a CrossBar subscription to a stream.
+/// </summary>
+/// <typeparam name="TBody">The message body type.</typeparam>
 public sealed class Recording<TBody> : IRecording
 {
     private ISubscription _subscription = null!;
@@ -33,8 +37,10 @@ public sealed class Recording<TBody> : IRecording
     }
 
     //todo: change MessageLoop to do WaitAny and handle cases when externally someone disposes our underlying subscription, we should just cancel the PipeReaderLoop too
+    /// <summary>Gets the underlying subscription that receives messages.</summary>
     public ISubscription UnderlyingSubscription => _subscription;
 
+    /// <summary>Gets recording statistics.</summary>
     public RecorderStats RecordingStats => _recorderStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
@@ -142,8 +148,12 @@ public sealed class Recording<TBody> : IRecording
         }
     }
 
+    /// <summary>Gets the message processing loop task.</summary>
     public Task MessageLoop { get; private set; } = null!;
 
+    /// <summary>
+    /// Disposes the recording and stops message capture.
+    /// </summary>
     public void Dispose()
     {
         _cts.Cancel();

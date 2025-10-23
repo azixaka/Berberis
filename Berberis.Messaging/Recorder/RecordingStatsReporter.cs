@@ -2,6 +2,10 @@
 
 namespace Berberis.Messaging.Recorder;
 
+/// <summary>
+/// Tracks and reports statistics for recording operations.
+/// Thread-safe for concurrent Start/Stop calls.
+/// </summary>
 public sealed class RecorderStatsReporter
 {
     private long _totalMessages;
@@ -17,8 +21,17 @@ public sealed class RecorderStatsReporter
 
     private readonly object _syncObj = new();
 
+    /// <summary>
+    /// Starts timing a recording operation.
+    /// </summary>
+    /// <returns>The timestamp when the operation started.</returns>
     public long Start() => Stopwatch.GetTimestamp();
 
+    /// <summary>
+    /// Stops timing a recording operation and records its metrics.
+    /// </summary>
+    /// <param name="startTicks">The timestamp from <see cref="Start"/>.</param>
+    /// <param name="bytes">The number of bytes written in this operation.</param>
     public void Stop(long startTicks, long bytes)
     {
         Interlocked.Increment(ref _totalMessages);
@@ -26,6 +39,10 @@ public sealed class RecorderStatsReporter
         Interlocked.Add(ref _totalBytes, bytes);
     }
 
+    /// <summary>
+    /// Gets recording statistics for the interval since the last call to this method.
+    /// </summary>
+    /// <returns>Recording statistics including message rate, throughput, and service times.</returns>
     public RecorderStats GetStats()
     {
         var totalMesssages = Interlocked.Read(ref _totalMessages);

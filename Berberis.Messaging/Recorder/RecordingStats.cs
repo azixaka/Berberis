@@ -1,5 +1,8 @@
 ﻿namespace Berberis.Messaging.Recorder;
 
+/// <summary>
+/// Statistics about recording performance and throughput.
+/// </summary>
 public readonly struct RecorderStats
 {
     /// <summary>
@@ -32,6 +35,9 @@ public readonly struct RecorderStats
     /// </summary>
     public readonly float AvgServiceTime;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RecorderStats"/> struct.
+    /// </summary>
     public RecorderStats(float intervalMs, float messagesPerSecond, float totalMessages, float bytesPerSecond, float totalBytes, float avgServiceTime)
     {
         IntervalMs = intervalMs;

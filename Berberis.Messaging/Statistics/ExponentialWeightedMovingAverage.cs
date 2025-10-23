@@ -1,5 +1,6 @@
 ﻿namespace Berberis.Messaging.Statistics;
 
+/// <summary>Exponential weighted moving average calculator.</summary>
 public sealed class ExponentialWeightedMovingAverage
 {
     private bool _initialised = false;
@@ -7,10 +8,19 @@ public sealed class ExponentialWeightedMovingAverage
     // Smoothing/damping coefficient
     private float _alpha;
 
+    /// <summary>Gets the exponentially weighted moving average value.</summary>
     public float AverageValue { get; private set; }
+
+    /// <summary>Gets the minimum value observed.</summary>
     public float MinValue { get; private set; }
+
+    /// <summary>Gets the maximum value observed.</summary>
     public float MaxValue { get; private set; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ExponentialWeightedMovingAverage"/> class.
+    /// </summary>
+    /// <param name="samplesPerWindow">Number of samples per window for smoothing (minimum 1).</param>
     public ExponentialWeightedMovingAverage(int samplesPerWindow)
     {
         samplesPerWindow = samplesPerWindow < 1 ? 50 : samplesPerWindow;
@@ -19,6 +29,10 @@ public sealed class ExponentialWeightedMovingAverage
         _alpha = 2f / (samplesPerWindow + 1);
     }
 
+    /// <summary>
+    /// Adds a new sample to the moving average calculation.
+    /// </summary>
+    /// <param name="value">The sample value to add.</param>
     public void NewSample(float value)
     {
         if (_initialised)
@@ -38,6 +52,9 @@ public sealed class ExponentialWeightedMovingAverage
         }
     }
 
+    /// <summary>
+    /// Resets all statistics to zero.
+    /// </summary>
     public void Reset()
     {
         AverageValue = 0;

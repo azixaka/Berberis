@@ -1,5 +1,6 @@
 ﻿namespace Berberis.Messaging.Statistics;
 
+/// <summary>Moving percentile estimator.</summary>
 public sealed class MovingPercentile
 {
     private bool _initialised;
@@ -9,8 +10,15 @@ public sealed class MovingPercentile
     private float _delta;
     private readonly float _deltaInit;
 
+    /// <summary>Gets the current percentile estimate.</summary>
     public float PercentileValue { get; private set; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MovingPercentile"/> class.
+    /// </summary>
+    /// <param name="percentile">The percentile to track (0.0 to 1.0).</param>
+    /// <param name="alpha">Smoothing factor (default 0.05).</param>
+    /// <param name="delta">Initial step size (default 0.05).</param>
     public MovingPercentile(float percentile, float alpha = 0.05f, float delta = 0.05f)
     {
         _percentile = percentile;
@@ -18,6 +26,10 @@ public sealed class MovingPercentile
         _delta = _deltaInit = delta;
     }
 
+    /// <summary>
+    /// Adds a new sample to the percentile calculation.
+    /// </summary>
+    /// <param name="value">The sample value to add.</param>
     public void NewSample(float value)
     {
         if (_initialised)
@@ -38,6 +50,11 @@ public sealed class MovingPercentile
         }
     }
 
+    /// <summary>
+    /// Adds a new sample with adaptive step size based on variance from exponential weighted moving average.
+    /// </summary>
+    /// <param name="value">The sample value to add.</param>
+    /// <param name="ewma">The exponential weighted moving average for adaptive step sizing.</param>
     public void NewSample(float value, float ewma)
     {
         var sigma = (float) Math.Sqrt(Math.Abs(ewma - value));
@@ -45,6 +62,9 @@ public sealed class MovingPercentile
         NewSample(value);
     }
 
+    /// <summary>
+    /// Resets the percentile estimate to zero.
+    /// </summary>
     public void Reset()
     {
         PercentileValue = 0;

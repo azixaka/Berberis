@@ -5,6 +5,7 @@ using System.Threading.Channels;
 
 namespace Berberis.Messaging;
 
+/// <summary>Typed subscription to channel messages.</summary>
 public sealed partial class Subscription<TBody> : ISubscription
 {
     private readonly ILogger<Subscription<TBody>> _logger;
@@ -71,20 +72,31 @@ public sealed partial class Subscription<TBody> : ISubscription
         Statistics = new StatsTracker(statsOptions);
     }
 
+    /// <summary>Subscription name.</summary>
     public string Name { get; }
+    /// <summary>Backpressure handling strategy.</summary>
     public SlowConsumerStrategy SlowConsumerStrategy { get; }
+    /// <summary>Performance statistics tracker.</summary>
     public StatsTracker Statistics { get; }
+    /// <summary>Subscription creation time.</summary>
     public DateTime SubscribedOn { get; init; }
+    /// <summary>Message conflation interval.</summary>
     public TimeSpan ConflationInterval { get; init; }
+    /// <summary>Message processing loop task.</summary>
     public Task MessageLoop { get; private set; } = null!;
+    /// <summary>Message body type.</summary>
     public Type MessageBodyType { get; }
 
+    /// <summary>True if wildcard subscription.</summary>
     public bool IsWildcard { get; init; }
 
+    /// <summary>Channel or pattern name.</summary>
     public string ChannelName { get; init; }
 
+    /// <summary>True if detached from channel.</summary>
     public bool IsDetached { get; set; }
 
+    /// <summary>Suspend/resume message processing.</summary>
     public bool IsProcessingSuspended
     {
         get => Volatile.Read(ref _isSuspended) == 1;
@@ -454,11 +466,10 @@ public sealed partial class Subscription<TBody> : ISubscription
         }
     }
 
-    /// <summary>
-    /// Gets the number of times handlers have timed out on this subscription.
-    /// </summary>
+    /// <summary>Gets handler timeout count.</summary>
     public long GetTimeoutCount() => Volatile.Read(ref _timeoutCount);
 
+    /// <summary>Disposes subscription and stops processing.</summary>
     public void Dispose()
     {
         var disposeAction = Interlocked.Exchange(ref _disposeAction, null);

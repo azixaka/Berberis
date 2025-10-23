@@ -1,3 +1,14 @@
 ﻿namespace Berberis.Messaging;
 
-public enum MessageType : byte { SystemTrace = 0x10, ChannelUpdate = 0x20, ChannelDelete = 0x30, ChannelReset = 0x40 }
+/// <summary>Message type enumeration.</summary>
+public enum MessageType : byte
+{
+    /// <summary>System trace message.</summary>
+    SystemTrace = 0x10,
+    /// <summary>Channel state update.</summary>
+    ChannelUpdate = 0x20,
+    /// <summary>Channel state deletion.</summary>
+    ChannelDelete = 0x30,
+    /// <summary>Channel state reset.</summary>
+    ChannelReset = 0x40
+}

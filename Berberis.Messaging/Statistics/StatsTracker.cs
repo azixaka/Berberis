@@ -2,6 +2,7 @@
 
 namespace Berberis.Messaging.Statistics;
 
+/// <summary>Tracks subscription performance statistics.</summary>
 public sealed class StatsTracker
 {
     internal static long GetTicks() => Stopwatch.GetTimestamp();
@@ -28,6 +29,7 @@ public sealed class StatsTracker
     private readonly MovingPercentile? _latencyPercentile;
     private readonly MovingPercentile? _svcTimePercentile;
 
+    /// <summary>Creates statistics tracker with options.</summary>
     public StatsTracker(StatsOptions statsOptions)
     {
         StatsOptions = statsOptions;
@@ -46,6 +48,7 @@ public sealed class StatsTracker
         _lastTicks = GetTicks();
     }
 
+    /// <summary>Statistics collection options.</summary>
     public StatsOptions StatsOptions { get; }
 
     internal void IncNumOfEnqueuedMessages() => Interlocked.Increment(ref _totalMessagesEnqueued);
@@ -80,6 +83,8 @@ public sealed class StatsTracker
         return svcTime;
     }
 
+    /// <summary>Gets statistics snapshot.</summary>
+    /// <param name="reset">Reset counters after snapshot.</param>
     public Stats GetStats(bool reset)
     {
         var ticks = GetTicks();

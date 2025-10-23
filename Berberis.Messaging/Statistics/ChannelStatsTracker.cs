@@ -2,6 +2,7 @@
 
 namespace Berberis.Messaging.Statistics;
 
+/// <summary>Tracks channel performance statistics.</summary>
 public sealed class ChannelStatsTracker
 {
     internal static long GetTicks() => Stopwatch.GetTimestamp();
@@ -13,6 +14,9 @@ public sealed class ChannelStatsTracker
     private long _lastTicks;
     private object _syncObj = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChannelStatsTracker"/> class.
+    /// </summary>
     public ChannelStatsTracker()
     {
         _lastTicks = GetTicks();
@@ -20,6 +24,11 @@ public sealed class ChannelStatsTracker
 
     internal void IncNumOfPublishedMessages() => Interlocked.Increment(ref _totalMessages);
 
+    /// <summary>
+    /// Gets channel statistics for the interval since the last call (if reset is true).
+    /// </summary>
+    /// <param name="reset">If true, resets the interval counters after reading.</param>
+    /// <returns>Channel statistics including message rate and total messages.</returns>
     public ChannelStats GetStats(bool reset)
     {
         var ticks = GetTicks();

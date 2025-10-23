@@ -6,6 +6,10 @@ using System.Runtime.CompilerServices;
 
 namespace Berberis.Recorder;
 
+/// <summary>
+/// Plays back recorded messages from a stream.
+/// </summary>
+/// <typeparam name="TBody">The message body type.</typeparam>
 public sealed partial class Player<TBody> : IPlayer<TBody>
 {
     private Stream _stream;
@@ -20,14 +24,33 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
         _playMode = playMode;
     }
 
+    /// <summary>Gets playback statistics.</summary>
     public RecorderStats Stats => _recorderStatsReporter.GetStats();
 
+    /// <summary>
+    /// Creates a player for recorded messages.
+    /// </summary>
+    /// <param name="stream">The stream containing recorded messages.</param>
+    /// <param name="serialiser">The message body serializer.</param>
+    /// <returns>A player instance.</returns>
     public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser) =>
            Create(stream, serialiser, PlayMode.AsFastAsPossible);
 
+    /// <summary>
+    /// Creates a player for recorded messages with specified play mode.
+    /// </summary>
+    /// <param name="stream">The stream containing recorded messages.</param>
+    /// <param name="serialiser">The message body serializer.</param>
+    /// <param name="playMode">The playback mode.</param>
+    /// <returns>A player instance.</returns>
     public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode) =>
            new Player<TBody>(stream, serialiser, playMode);
 
+    /// <summary>
+    /// Gets messages from the recording asynchronously.
+    /// </summary>
+    /// <param name="token">Cancellation token.</param>
+    /// <returns>An async enumerable of recorded messages.</returns>
     public async IAsyncEnumerable<Message<TBody>> MessagesAsync([EnumeratorCancellation] CancellationToken token)
     {
         while (!token.IsCancellationRequested)
@@ -119,6 +142,9 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
         return null;
     }
 
+    /// <summary>
+    /// Disposes the player resources.
+    /// </summary>
     public void Dispose()
     {
     }
