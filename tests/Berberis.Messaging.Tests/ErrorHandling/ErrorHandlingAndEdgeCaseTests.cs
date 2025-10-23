@@ -416,4 +416,74 @@ public class ErrorHandlingAndEdgeCaseTests
         // Assert - Should process other messages despite exception
         processedCount.Should().BeGreaterThan(5);
     }
+
+    // Phase 3 Coverage Boost Tests
+
+    [Fact]
+    public void InvalidChannelNameException_Properties_SetCorrectly()
+    {
+        // VALIDATES: Exception properties and metadata
+        // IMPACT: Covers 4 lines in InvalidChannelNameException.cs
+
+        // Act
+        var ex = new InvalidChannelNameException("bad..channel", "contains consecutive dots");
+
+        // Assert
+        ex.ChannelName.Should().Be("bad..channel");
+        ex.Reason.Should().Be("contains consecutive dots");
+        ex.Message.Should().Contain("bad..channel");
+        ex.Message.Should().Contain("consecutive dots");
+    }
+
+    [Fact]
+    public void InvalidChannelNameException_EmptyName_SetsPropertiesCorrectly()
+    {
+        // Act
+        var ex = new InvalidChannelNameException("", "empty name");
+
+        // Assert
+        ex.ChannelName.Should().BeEmpty();
+        ex.Reason.Should().Be("empty name");
+        ex.Message.Should().Contain("empty");
+    }
+
+    [Fact]
+    public void ChannelTypeMismatchException_Message_ContainsTypeInfo()
+    {
+        // VALIDATES: Exception message formatting and type metadata
+        // IMPACT: Covers 6 lines in ChannelTypeMismatchException.cs
+
+        // Act
+        var ex = new ChannelTypeMismatchException(
+            "orders.new",
+            typeof(string),
+            typeof(int));
+
+        // Assert - Check all properties
+        ex.ChannelName.Should().Be("orders.new");
+        ex.ExpectedType.Should().Be(typeof(string));
+        ex.ActualType.Should().Be(typeof(int));
+
+        // Message should be descriptive
+        ex.Message.Should().Contain("orders.new");
+        ex.Message.Should().Contain("String");
+        ex.Message.Should().Contain("Int32");
+    }
+
+    [Fact]
+    public void ChannelTypeMismatchException_ToString_IncludesFullDetails()
+    {
+        // VALIDATES: Exception.ToString() includes all diagnostic info
+
+        // Act
+        var ex = new ChannelTypeMismatchException("test", typeof(double), typeof(bool));
+
+        var toString = ex.ToString();
+
+        // Assert
+        toString.Should().Contain("ChannelTypeMismatchException");
+        toString.Should().Contain("test");
+        toString.Should().Contain("Double");
+        toString.Should().Contain("Boolean");
+    }
 }

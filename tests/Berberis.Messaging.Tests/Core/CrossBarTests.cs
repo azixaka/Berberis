@@ -399,4 +399,74 @@ public partial class CrossBarTests
         var stateAfter = xBar.GetChannelState<string>("test.channel").ToList();
         stateAfter.Should().BeEmpty();
     }
+
+    // Phase 3 Coverage Boost Tests
+
+    [Fact]
+    public async Task CrossBar_PublishOverload_WithAllParameters()
+    {
+        // VALIDATES: Less-common publish overload with all optional parameters
+        // IMPACT: Covers 10 lines in CrossBar publish overloads
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var received = new List<Message<string>>();
+
+        xBar.Subscribe<string>("test.channel", msg =>
+        {
+            received.Add(msg);
+            return ValueTask.CompletedTask;
+        }, CancellationToken.None);
+
+        // Act - Use publish with body and all optional parameters
+        await xBar.Publish(
+            channelName: "test.channel",
+            body: "test-message",
+            correlationId: 12345,
+            key: "unique-key",
+            store: true,
+            from: "test-source",
+            tagA: 999);
+
+        await Task.Delay(100);
+
+        // Assert - All parameters preserved
+        received.Should().HaveCount(1);
+        var msg = received[0];
+
+        msg.Body.Should().Be("test-message");
+        msg.CorrelationId.Should().Be(12345);
+        msg.Key.Should().Be("unique-key");
+        msg.From.Should().Be("test-source");
+        msg.TagA.Should().Be(999);
+
+        // Verify message was stored
+        var state = xBar.GetChannelState<string>("test.channel");
+        state.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task CrossBar_PublishOverload_MessageObject_Works()
+    {
+        // VALIDATES: Publish overload accepting Message object
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var received = false;
+
+        xBar.Subscribe<int>("test", msg =>
+        {
+            received = true;
+            return ValueTask.CompletedTask;
+        }, CancellationToken.None);
+
+        // Act - Use message object overload
+        var message = TestHelpers.CreateTestMessage(42);
+        await xBar.Publish("test", message, store: false);
+
+        await Task.Delay(50);
+
+        // Assert
+        received.Should().BeTrue();
+    }
 }

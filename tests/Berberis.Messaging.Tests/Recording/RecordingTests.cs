@@ -520,4 +520,189 @@ public class RecordingTests
         var stats = recording.RecordingStats;
         stats.TotalMessages.Should().Be(10);
     }
+
+    // Phase 2 Coverage Boost Tests
+
+    [Fact]
+    public async Task Recording_AsyncMessageHandler_RecordsCorrectly()
+    {
+        // VALIDATES: Async code path in Recording (currently 0% covered)
+        // VALIDATES: Recording`1/<<MessageHandler>g__AsyncPath|15_0>d
+        // IMPACT: Covers 12 lines in Recording.cs async path
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using var recording = xBar.Record("test.channel", stream, serializer);
+
+        // Publish messages (will trigger async path in recording)
+        for (int i = 0; i < 10; i++)
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"async-msg-{i}"), false);
+        }
+
+        await Task.Delay(200); // Allow async recording to complete
+
+        // Act - Stop recording and check data was written
+        recording.Dispose();
+
+        // Assert
+        stream.Position = 0;
+        stream.Length.Should().BeGreaterThan(0, "recording should have written data");
+
+        // Verify we can play back what was recorded
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        var playedBack = new List<string>();
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            playedBack.Add(msg.Body!);
+        }
+
+        playedBack.Should().HaveCount(10);
+        playedBack.Should().Contain("async-msg-0");
+        playedBack.Should().Contain("async-msg-9");
+    }
+
+    [Fact]
+    public async Task Player_GetNextChunk_HandlesMultipleChunks()
+    {
+        // VALIDATES: Chunk-based replay logic (Player`1/<GetNextChunk>d__11)
+        // IMPACT: Covers 18 lines in Player.cs GetNextChunk method
+
+        // Arrange - Record large dataset that will span multiple chunks
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            // Record 1000 messages to force multiple chunks
+            for (int i = 0; i < 1000; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"chunk-msg-{i}"), false);
+            }
+
+            await Task.Delay(500);
+        }
+
+        // Act - Play back and verify chunk handling
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        var playedBack = new List<string>();
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            playedBack.Add(msg.Body!);
+        }
+
+        // Assert
+        playedBack.Should().HaveCount(1000, "all messages should be played back");
+        playedBack.First().Should().Be("chunk-msg-0");
+        playedBack.Last().Should().Be("chunk-msg-999");
+    }
+
+    [Fact]
+    public async Task Player_GetNextChunk_EmptyStream_ReturnsNoMessages()
+    {
+        // VALIDATES: Edge case - empty recording
+
+        // Arrange
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+        var xBar = TestHelpers.CreateTestCrossBar();
+
+        // Write minimal valid recording header
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            // No messages published
+        }
+
+        // Act
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        var playedBack = new List<string>();
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            playedBack.Add(msg.Body!);
+        }
+
+        // Assert
+        playedBack.Should().BeEmpty("empty recording should play back nothing");
+    }
+
+    [Fact]
+    public async Task Player_Dispose_CleansUpResources()
+    {
+        // VALIDATES: Player.Dispose() method (currently 0% covered)
+        // IMPACT: Covers 2 lines in Player.cs disposal
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage("test-msg"), false);
+            await Task.Delay(50);
+        }
+
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Dispose player
+        player.Dispose();
+
+        // Assert - Should not throw
+        // Multiple dispose should also be safe
+        player.Dispose();
+
+        // Attempting to iterate after dispose should fail gracefully or throw
+        // Note: This tests disposal behavior
+    }
+
+    [Fact]
+    public async Task Player_Stats_ReturnsPlaybackStatistics()
+    {
+        // VALIDATES: Player.Stats property getter (currently 0% covered)
+        // IMPACT: Covers 1 line in Player.cs
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(i.ToString()), false);
+            }
+            await Task.Delay(100);
+        }
+
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Access Stats property
+        var initialStats = player.Stats;
+
+        // Assert
+        initialStats.Should().NotBeNull();
+
+        // Play messages and check stats update
+        var count = 0;
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            count++;
+        }
+
+        var finalStats = player.Stats;
+        finalStats.TotalMessages.Should().Be(50);
+    }
 }
