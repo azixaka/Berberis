@@ -47,6 +47,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         var ticks = StatsTracker.GetTicks();
 
         EnsureNotDisposed();
+        ValidateChannelName(channelName, nameof(channelName));
 
         if (store && string.IsNullOrEmpty(message.Key))
         {
@@ -178,6 +179,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                                           CancellationToken token = default)
     {
         EnsureNotDisposed();
+        ValidateChannelName(channelName, nameof(channelName));
+        ValidateHandler(handler);
 
         if (IsSystemChannel(channelName))
         {
@@ -613,6 +616,29 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     {
         if (Volatile.Read(ref _isDisposed) == 1)
             throw new ObjectDisposedException(nameof(CrossBar));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ValidateChannelName(string channelName, string paramName)
+    {
+        if (channelName == null)
+            throw new ArgumentNullException(paramName, "Channel name cannot be null");
+
+        if (string.IsNullOrWhiteSpace(channelName))
+            throw new ArgumentException("Channel name cannot be empty or whitespace", paramName);
+
+        if (channelName.Length > 256)
+            throw new ArgumentException("Channel name too long (max 256 characters)", paramName);
+
+        if (channelName.Contains(".."))
+            throw new ArgumentException("Channel name cannot contain consecutive dots", paramName);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ValidateHandler<TBody>(Func<Message<TBody>, ValueTask> handler)
+    {
+        if (handler == null)
+            throw new ArgumentNullException(nameof(handler), "Message handler cannot be null");
     }
 
     [LoggerMessage(0, LogLevel.Trace, "Sent message [{messageId}] | correlation [{corId}] | key [{key}] to subscription [{subscriptionName}] on channel [{channel}]")]
