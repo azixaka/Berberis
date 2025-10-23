@@ -350,6 +350,11 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task<long> SendState()
     {
+        // Check if suspended before processing any state to handle
+        // the case where subscription is suspended immediately after creation
+        if (Volatile.Read(ref _isSuspended) == 1)
+            await _resumeProcessingSignal.Task;
+
         long maxSequenceId = -1;
 
         if (_stateFactories != null)

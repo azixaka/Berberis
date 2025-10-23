@@ -394,6 +394,286 @@ using var tracingSubscription = xBar.Subscribe<MessageTrace>(
 );
 ```
 
+#### Exporting Metrics to JSON
+
+The `MetricsToJson` extension method provides a comprehensive JSON export of all channel and subscription metrics. This is ideal for:
+- Monitoring dashboards
+- Log aggregation systems
+- Performance analysis tools
+- Real-time health checks
+
+```csharp
+using System.Text.Json;
+
+// Export metrics to JSON
+using var memoryStream = new MemoryStream();
+using var writer = new Utf8JsonWriter(memoryStream, new JsonWriterOptions
+{
+    Indented = true  // Pretty-print for readability
+});
+
+xBar.MetricsToJson(
+    writer: writer,
+    useMnemonics: false,  // Use full property names
+    resetStats: false     // Keep statistics after export
+);
+
+writer.Flush();
+var json = Encoding.UTF8.GetString(memoryStream.ToArray());
+Console.WriteLine(json);
+
+// Write directly to a file
+using var fileStream = File.Create("crossbar-metrics.json");
+using var fileWriter = new Utf8JsonWriter(fileStream, new JsonWriterOptions { Indented = true });
+xBar.MetricsToJson(fileWriter, useMnemonics: false, resetStats: false);
+
+// Use mnemonics for compact JSON (smaller payload)
+xBar.MetricsToJson(writer, useMnemonics: true, resetStats: false);
+```
+
+**Example JSON Output (Full Format):**
+
+```json
+{
+  "Channels": [
+    {
+      "Channel": "stock.prices",
+      "MessageBodyType": "MyApp.StockPrice",
+      "LastPublishedBy": "StockPriceProducerService",
+      "LastPublishedAt": "23/10/2025 14:30:45.123",
+      "IntervalMs": 1000.50,
+      "PublishRate": 1250.75,
+      "TotalMessages": 125000
+    },
+    {
+      "Channel": "stock.trades",
+      "MessageBodyType": "MyApp.Trade",
+      "LastPublishedBy": "TradeExecutor",
+      "LastPublishedAt": "23/10/2025 14:30:45.098",
+      "IntervalMs": 1000.25,
+      "PublishRate": 450.20,
+      "TotalMessages": 45000
+    }
+  ],
+  "Subscriptions": [
+    {
+      "Name": "PriceProcessor_MainSubscription",
+      "SubscribedAt": "23/10/2025 14:25:10.000",
+      "Subscriptions": [
+        "stock.prices"
+      ],
+      "ConflationInterval": "00:00:00.5000000",
+      "ConflationRatio": 0.3456,
+      "LatencyToResponseTimeRatio": 0.0125,
+      "IntervalMs": 1000.50,
+      "DequeueRate": 1248.25,
+      "ProcessRate": 1248.20,
+      "EstimatedAvgActiveMessages": 1.25,
+      "TotalEnqueuedMessages": 125000,
+      "TotalDequeuedMessages": 124980,
+      "TotalProcessedMessages": 124950,
+      "QueueLength": 50,
+      "AvgLatencyTimeMs": 0.1234,
+      "MinLatencyTimeMs": 0.0450,
+      "MaxLatencyTimeMs": 2.3500,
+      "AvgServiceTimeMs": 1.2500,
+      "MinServiceTimeMs": 0.8000,
+      "MaxServiceTimeMs": 5.6700,
+      "AvgResponseTimeMs": 1.3750,
+      "StatsPercentile": 99,
+      "PctLatencyTimeMs": 0.8900,
+      "PctServiceTimeMs": 3.2100
+    },
+    {
+      "Name": "WildcardTradeMonitor",
+      "SubscribedAt": "23/10/2025 14:25:12.500",
+      "Subscriptions": [
+        "stock.trades",
+        "stock.trades.NYSE",
+        "stock.trades.NASDAQ"
+      ],
+      "Expression": "stock.trades.>",
+      "LatencyToResponseTimeRatio": 0.0089,
+      "IntervalMs": 1000.25,
+      "DequeueRate": 450.15,
+      "ProcessRate": 450.15,
+      "EstimatedAvgActiveMessages": 0.5,
+      "TotalEnqueuedMessages": 45000,
+      "TotalDequeuedMessages": 45000,
+      "TotalProcessedMessages": 45000,
+      "QueueLength": 0,
+      "AvgLatencyTimeMs": 0.0890,
+      "MinLatencyTimeMs": 0.0200,
+      "MaxLatencyTimeMs": 1.5000,
+      "AvgServiceTimeMs": 0.5600,
+      "MinServiceTimeMs": 0.2000,
+      "MaxServiceTimeMs": 2.3000,
+      "AvgResponseTimeMs": 0.6490
+    }
+  ]
+}
+```
+
+**Example JSON Output (Mnemonic Format):**
+
+The mnemonic format uses shortened property names to reduce JSON payload size, ideal for high-frequency monitoring or bandwidth-constrained scenarios:
+
+```json
+{
+  "Chs": [
+    {
+      "Ch": "stock.prices",
+      "Tp": "MyApp.StockPrice",
+      "PubBy": "StockPriceProducerService",
+      "PubAt": "23/10/2025 14:30:45.123",
+      "InMs": 1000.50,
+      "Rt": 1250.75,
+      "TMsg": 125000
+    }
+  ],
+  "Sbs": [
+    {
+      "Nm": "PriceProcessor_MainSubscription",
+      "SubAt": "23/10/2025 14:25:10.000",
+      "Sbs": ["stock.prices"],
+      "CfIn": "00:00:00.5000000",
+      "CfRat": 0.3456,
+      "LatRsp": 0.0125,
+      "InMs": 1000.50,
+      "DqRt": 1248.25,
+      "PcRt": 1248.20,
+      "EstAvgAMsg": 1.25,
+      "TEqMsg": 125000,
+      "TDqMsg": 124980,
+      "TPcMsg": 124950,
+      "QLn": 50,
+      "AvgLat": 0.1234,
+      "MinLat": 0.0450,
+      "MaxLat": 2.3500,
+      "AvgSvc": 1.2500,
+      "MinSvc": 0.8000,
+      "MaxSvc": 5.6700,
+      "AvgRsp": 1.3750,
+      "StPct": 99,
+      "PctLat": 0.8900,
+      "PctSvc": 3.2100
+    }
+  ]
+}
+```
+
+**Metric Definitions:**
+
+**Channel Metrics:**
+- `Channel` / `Ch`: Channel name
+- `MessageBodyType` / `Tp`: Fully qualified type name of message body
+- `LastPublishedBy` / `PubBy`: Source identifier of last publisher
+- `LastPublishedAt` / `PubAt`: Timestamp of last publish (dd/MM/yyyy HH:mm:ss.fff)
+- `IntervalMs` / `InMs`: Measurement interval in milliseconds
+- `PublishRate` / `Rt`: Messages published per second
+- `TotalMessages` / `TMsg`: Total messages published to channel
+
+**Subscription Metrics:**
+- `Name` / `Nm`: Subscription name
+- `SubscribedAt` / `SubAt`: Subscription creation time
+- `Subscriptions` / `Sbs`: Array of channel names this subscription receives from
+- `Expression` / `Exp`: Wildcard pattern (only present for wildcard subscriptions)
+- `ConflationInterval` / `CfIn`: Conflation time window (only if conflation enabled)
+- `ConflationRatio` / `CfRat`: Ratio of messages conflated (0-1, only if conflation enabled)
+- `LatencyToResponseTimeRatio` / `LatRsp`: Latency/response time ratio (lower = more efficient)
+- `IntervalMs` / `InMs`: Measurement interval in milliseconds
+- `DequeueRate` / `DqRt`: Messages dequeued per second
+- `ProcessRate` / `PcRt`: Messages processed per second
+- `EstimatedAvgActiveMessages` / `EstAvgAMsg`: Average messages being processed concurrently
+- `TotalEnqueuedMessages` / `TEqMsg`: Total messages received
+- `TotalDequeuedMessages` / `TDqMsg`: Total messages dequeued for processing
+- `TotalProcessedMessages` / `TPcMsg`: Total messages successfully processed
+- `QueueLength` / `QLn`: Current queue depth
+- `AvgLatencyTimeMs` / `AvgLat`: Average time from publish to dequeue
+- `MinLatencyTimeMs` / `MinLat`: Minimum latency observed
+- `MaxLatencyTimeMs` / `MaxLat`: Maximum latency observed
+- `AvgServiceTimeMs` / `AvgSvc`: Average handler execution time
+- `MinServiceTimeMs` / `MinSvc`: Minimum service time observed
+- `MaxServiceTimeMs` / `MaxSvc`: Maximum service time observed
+- `AvgResponseTimeMs` / `AvgRsp`: Average total time (latency + service time)
+- `StatsPercentile` / `StPct`: Configured percentile (e.g., 99 for P99)
+- `PctLatencyTimeMs` / `PctLat`: Percentile latency time
+- `PctServiceTimeMs` / `PctSvc`: Percentile service time
+
+**Real-World Integration Examples:**
+
+```csharp
+// 1. Periodic export to monitoring system
+public class MetricsExporter : BackgroundService
+{
+    private readonly ICrossBar _xBar;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        using var httpClient = _httpClientFactory.CreateClient();
+
+        while (!ct.IsCancellationRequested)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream);
+
+            _xBar.MetricsToJson(writer, useMnemonics: true, resetStats: true);
+            writer.Flush();
+
+            // Send to monitoring endpoint
+            var content = new ByteArrayContent(stream.ToArray());
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            await httpClient.PostAsync("https://monitoring.example.com/metrics", content, ct);
+
+            await Task.Delay(TimeSpan.FromSeconds(10), ct);
+        }
+    }
+}
+
+// 2. Health check endpoint in ASP.NET Core
+app.MapGet("/health/crossbar", (ICrossBar xBar) =>
+{
+    using var stream = new MemoryStream();
+    using var writer = new Utf8JsonWriter(stream);
+
+    xBar.MetricsToJson(writer, useMnemonics: false, resetStats: false);
+    writer.Flush();
+
+    return Results.Json(
+        JsonDocument.Parse(stream.ToArray()).RootElement,
+        statusCode: 200
+    );
+});
+
+// 3. Alert on metrics thresholds
+public async Task CheckHealthMetrics(ICrossBar xBar)
+{
+    using var stream = new MemoryStream();
+    using var writer = new Utf8JsonWriter(stream);
+
+    xBar.MetricsToJson(writer, useMnemonics: false, resetStats: false);
+    writer.Flush();
+
+    var metrics = JsonDocument.Parse(stream.ToArray());
+    var subscriptions = metrics.RootElement.GetProperty("Subscriptions");
+
+    foreach (var sub in subscriptions.EnumerateArray())
+    {
+        var queueLength = sub.GetProperty("QueueLength").GetInt64();
+        var avgLatency = sub.GetProperty("AvgLatencyTimeMs").GetDouble();
+        var name = sub.GetProperty("Name").GetString();
+
+        if (queueLength > 10000)
+            _logger.LogWarning("High queue depth on {Name}: {QueueLength}", name, queueLength);
+
+        if (avgLatency > 100)
+            _logger.LogWarning("High latency on {Name}: {Latency}ms", name, avgLatency);
+    }
+}
+```
+
 ### Error Handling and Backpressure
 
 Control how subscriptions handle slow consumers and errors:
