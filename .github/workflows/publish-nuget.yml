@@ -1,0 +1,111 @@
+name: Publish NuGet Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.1.31
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (e.g., 1.1.31)'
+        required: true
+        type: string
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PROJECT_PATH: 'Berberis.Messaging/Berberis.Messaging.csproj'
+
+jobs:
+  publish:
+    name: Build and Publish to NuGet
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF#refs/tags/v}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Publishing version: $VERSION"
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Display .NET info
+      run: dotnet --info
+
+    - name: Update version in .csproj
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|" ${{ env.PROJECT_PATH }}
+        echo "Updated version in .csproj to: $VERSION"
+        grep "<Version>" ${{ env.PROJECT_PATH }}
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build
+      run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+
+    - name: Run tests
+      run: dotnet test tests/Berberis.Messaging.Tests/Berberis.Messaging.Tests.csproj --configuration Release --verbosity normal
+
+    - name: Pack NuGet package
+      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./nupkg
+
+    - name: List package contents
+      run: |
+        echo "Generated NuGet packages:"
+        ls -lh ./nupkg/
+
+    - name: Push to NuGet.org
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./nupkg/*.nupkg
+        generate_release_notes: true
+        body: |
+          ## NuGet Package Published
+
+          📦 **Package**: [Berberis.Messaging v${{ steps.get_version.outputs.version }}](https://www.nuget.org/packages/Berberis.Messaging/${{ steps.get_version.outputs.version }})
+
+          Install with:
+          ```bash
+          dotnet add package Berberis.Messaging --version ${{ steps.get_version.outputs.version }}
+          ```
+
+          ### What's Changed
+          See the commits and changes below.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build summary
+      if: always()
+      run: |
+        echo "## NuGet Publish Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **.NET Version:** ${{ env.DOTNET_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Package:** [Berberis.Messaging](https://www.nuget.org/packages/Berberis.Messaging)" >> $GITHUB_STEP_SUMMARY

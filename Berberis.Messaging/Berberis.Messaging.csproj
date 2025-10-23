@@ -12,13 +12,21 @@
 		<Version>1.1.30</Version>
 		<Company>Azik Gudratov</Company>
 		<Authors>Azik Gudratov</Authors>
-		<PackageDescription>Berberis is an in-process message broker implementation</PackageDescription>
+		<PackageDescription>Berberis is a high-performance, allocation-free in-process message broker for creating complex, high-speed pipelines. Features typed channels, message conflation, record/replay, comprehensive observability, stateful channels, and wildcard subscriptions.</PackageDescription>
+		<PackageProjectUrl>https://github.com/azixaka/Berberis</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/azixaka/Berberis</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>berberis.png</PackageIcon>
+		<PackageTags>messaging;message-broker;in-process;pub-sub;channels;high-performance;allocation-free;observability;crossbar</PackageTags>
+		<PackageReleaseNotes>https://github.com/azixaka/Berberis/releases</PackageReleaseNotes>
+		<Copyright>Copyright (c) Azik Gudratov</Copyright>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<None Include="berberis.png" Pack="true" PackagePath="" />
+		<None Include="..\README.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 	<ItemGroup>
