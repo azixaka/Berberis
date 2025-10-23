@@ -151,12 +151,17 @@ public class StatsTrackerTests
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
         var statsOptions = new StatsOptions();
+        var processedCount = 0;
+        var completionEvent = new ManualResetEventSlim(false);
+
         var sub = xBar.Subscribe<int>(
             "test.channel",
             async msg =>
             {
                 // Variable processing time based on message value
                 await Task.Delay(msg.Body);
+                if (Interlocked.Increment(ref processedCount) >= 3)
+                    completionEvent.Set();
             },
             subscriptionName: null,
             statsOptions: statsOptions,
@@ -167,7 +172,7 @@ public class StatsTrackerTests
         await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(50), false);
         await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(10), false);
 
-        await Task.Delay(200);
+        completionEvent.Wait(TimeSpan.FromSeconds(5));
 
         // Assert
         var stats = sub.Statistics.GetStats(reset: false);
@@ -249,9 +254,21 @@ public class StatsTrackerTests
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
         var statsOptions = new StatsOptions();
+        var processedCount = 0;
+        var interval1Event = new ManualResetEventSlim(false);
+        var interval2Event = new ManualResetEventSlim(false);
+
         var sub = xBar.Subscribe<string>(
             "test.channel",
-            _ => ValueTask.CompletedTask,
+            _ =>
+            {
+                var count = Interlocked.Increment(ref processedCount);
+                if (count == 10)
+                    interval1Event.Set();
+                if (count == 30)
+                    interval2Event.Set();
+                return ValueTask.CompletedTask;
+            },
             subscriptionName: null,
             statsOptions: statsOptions,
             token: CancellationToken.None);
@@ -261,7 +278,7 @@ public class StatsTrackerTests
         {
             await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"msg-{i}"), false);
         }
-        await Task.Delay(100);
+        interval1Event.Wait(TimeSpan.FromSeconds(5));
         var stats1 = sub.Statistics.GetStats(reset: true);
 
         // Interval 2
@@ -269,7 +286,7 @@ public class StatsTrackerTests
         {
             await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"msg-{i}"), false);
         }
-        await Task.Delay(100);
+        interval2Event.Wait(TimeSpan.FromSeconds(5));
         var stats2 = sub.Statistics.GetStats(reset: false);
 
         // Assert
