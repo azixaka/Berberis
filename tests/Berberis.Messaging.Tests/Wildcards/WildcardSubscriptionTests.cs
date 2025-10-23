@@ -61,6 +61,9 @@ public class WildcardSubscriptionTests
             return ValueTask.CompletedTask;
         }, default);
 
+        // Allow wildcard subscription to fully initialize
+        await Task.Delay(50);
+
         // Act
         await xBar.Publish(channel, TestHelpers.CreateTestMessage("test message"), false);
         messageEvent.Wait(TimeSpan.FromMilliseconds(500));
@@ -159,6 +162,9 @@ public class WildcardSubscriptionTests
             messageEvent.Set();
             return ValueTask.CompletedTask;
         }, default);
+
+        // Allow wildcard subscription to fully initialize
+        await Task.Delay(50);
 
         // Act
         await xBar.Publish(channel, TestHelpers.CreateTestMessage("test message"), false);
@@ -411,6 +417,9 @@ public class WildcardSubscriptionTests
             messageEvent.Set();
             return ValueTask.CompletedTask;
         }, default);
+
+        // Allow wildcard subscription to fully initialize
+        await Task.Delay(50);
 
         await xBar.Publish(channel, TestHelpers.CreateTestMessage("test"), false);
         messageEvent.Wait(TimeSpan.FromMilliseconds(500));
