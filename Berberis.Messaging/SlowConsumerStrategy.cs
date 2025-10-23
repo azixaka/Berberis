@@ -1,4 +1,6 @@
-﻿namespace Berberis.Messaging;
+﻿using Berberis.Messaging.Exceptions;
+
+namespace Berberis.Messaging;
 
 /// <summary>
 /// Strategy for handling slow consumers when the subscription buffer reaches capacity.

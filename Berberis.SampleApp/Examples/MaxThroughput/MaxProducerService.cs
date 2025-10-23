@@ -1,8 +1,8 @@
 ﻿using Berberis.Messaging;
 using Berberis.Recorder;
-using static Berberis.SampleApp.MaxConsumerService;
+using static Berberis.SampleApp.Examples.MaxThroughput.MaxConsumerService;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.MaxThroughput;
 
 public sealed class MaxProducerService : BackgroundService
 {

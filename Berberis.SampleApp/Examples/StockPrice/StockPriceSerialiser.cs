@@ -3,7 +3,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.StockPrice;
 
 public sealed class StockPriceSerialiser : IMessageBodySerializer<StockPrice>
 {

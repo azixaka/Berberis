@@ -1,4 +1,4 @@
-﻿namespace Berberis.Messaging;
+﻿namespace Berberis.Messaging.Exceptions;
 
 /// <summary>Failed publish exception.</summary>
 public sealed class FailedPublishException : ApplicationException

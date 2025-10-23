@@ -2,7 +2,7 @@
 using Berberis.Recorder;
 using System.Text;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.MaxThroughput;
 
 public sealed partial class MaxConsumerService : BackgroundService
 {

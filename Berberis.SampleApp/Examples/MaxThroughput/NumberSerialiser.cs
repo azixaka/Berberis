@@ -2,7 +2,7 @@
 using System.Buffers.Binary;
 using System.Buffers;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.MaxThroughput;
 
 public sealed class NumberSerialiser : IMessageBodySerializer<long>
 {

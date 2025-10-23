@@ -1,6 +1,6 @@
 ﻿using Berberis.Messaging;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.TimeMessages;
 
 public sealed class TimeProducerService : BackgroundService
 {

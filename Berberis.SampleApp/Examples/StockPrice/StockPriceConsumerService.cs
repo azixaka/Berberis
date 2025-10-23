@@ -1,7 +1,7 @@
 ﻿using Berberis.Messaging;
 using System.Runtime.InteropServices;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.StockPrice;
 
 public sealed class StockPriceConsumerService : BackgroundService
 {

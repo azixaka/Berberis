@@ -1,7 +1,7 @@
 ﻿using Berberis.Messaging;
 using Berberis.Recorder;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.StockPrice;
 
 public sealed class StockPriceRecorderService : BackgroundService
 {

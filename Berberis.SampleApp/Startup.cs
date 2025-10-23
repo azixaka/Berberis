@@ -1,4 +1,9 @@
 ﻿using Berberis.Messaging;
+using Berberis.SampleApp.Examples.MaxThroughput;
+using Berberis.SampleApp.Examples.ProcessInfo;
+using Berberis.SampleApp.Examples.Stateful;
+using Berberis.SampleApp.Examples.StockPrice;
+using Berberis.SampleApp.Examples.TimeMessages;
 using Serilog;
 
 namespace Berberis.SampleApp;

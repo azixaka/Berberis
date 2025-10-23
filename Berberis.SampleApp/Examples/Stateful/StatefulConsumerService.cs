@@ -1,6 +1,6 @@
 ﻿using Berberis.Messaging;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.Stateful;
 
 public sealed class StatefulConsumerService : BackgroundService
 {

@@ -1,4 +1,5 @@
 using Berberis.Messaging;
+using Berberis.Messaging.Exceptions;
 using Berberis.Messaging.Tests.Helpers;
 using FluentAssertions;
 using Xunit;

@@ -182,14 +182,16 @@ public class HandlerTimeoutTests
         {
             if (msg.Body % 2 == 0)
             {
-                // Even messages timeout
+                // Even messages timeout - don't increment counter
                 await Task.Delay(200);
             }
-            // Odd messages complete quickly
-
-            Interlocked.Increment(ref processedCount);
-            if (processedCount >= 3)
-                completionEvent.Set();
+            else
+            {
+                // Only fast (odd) messages count as "processed"
+                Interlocked.Increment(ref processedCount);
+                if (processedCount >= 3)
+                    completionEvent.Set();
+            }
 
             return;
         }, options: options, token: default);

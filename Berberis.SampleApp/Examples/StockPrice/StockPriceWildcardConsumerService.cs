@@ -2,7 +2,7 @@
 using Berberis.Messaging.Statistics;
 using System.Diagnostics;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.StockPrice;
 
 public sealed class StockPriceWildcardConsumerService : BackgroundService
 {

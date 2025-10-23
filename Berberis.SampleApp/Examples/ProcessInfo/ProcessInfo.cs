@@ -1,4 +1,4 @@
-﻿namespace Berberis.SampleApp;
+﻿namespace Berberis.SampleApp.Examples.ProcessInfo;
 
 public struct ProcessInfo
 {

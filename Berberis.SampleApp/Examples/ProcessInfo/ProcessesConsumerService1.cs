@@ -1,6 +1,6 @@
 ﻿using Berberis.Messaging;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.ProcessInfo;
 
 public sealed class ProcessesConsumerService1 : BackgroundService
 {

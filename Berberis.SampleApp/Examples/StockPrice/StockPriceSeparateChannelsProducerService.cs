@@ -1,7 +1,7 @@
 ﻿using Berberis.Messaging;
 using System.Diagnostics;
 
-namespace Berberis.SampleApp;
+namespace Berberis.SampleApp.Examples.StockPrice;
 
 public sealed class StockPriceSeparateChannelsProducerService : BackgroundService
 {
