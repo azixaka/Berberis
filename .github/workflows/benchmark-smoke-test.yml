@@ -1,0 +1,53 @@
+name: Benchmark Smoke Test
+
+# Only runs to verify benchmarks compile and execute
+# Does NOT perform performance regression detection (CI is too noisy)
+
+on:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'benchmarks/**'
+      - 'Berberis.Messaging/**/*.cs'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: |
+        cd benchmarks/Berberis.Messaging.Benchmarks
+        dotnet restore
+
+    - name: Build benchmarks
+      run: |
+        cd benchmarks/Berberis.Messaging.Benchmarks
+        dotnet build -c Release --no-restore
+
+    - name: Run smoke test
+      run: |
+        cd benchmarks/Berberis.Messaging.Benchmarks
+        # Quick test - just verify benchmarks run without crashing
+        # Using --job short for fast execution (~30 seconds)
+        dotnet run -c Release -- --job short --filter '*PublishSubscribeBenchmarks.Publish_SingleMessage'
+
+    - name: Comment on PR
+      if: success()
+      run: |
+        echo "✅ Benchmark smoke test passed - benchmarks compile and run successfully"
+        echo ""
+        echo "⚠️ Note: This test does NOT measure performance or detect regressions."
+        echo "CI environments are too noisy for reliable performance measurements."
+        echo ""
+        echo "To measure actual performance, run benchmarks locally on dedicated hardware:"
+        echo "  cd benchmarks/Berberis.Messaging.Benchmarks"
+        echo "  dotnet run -c Release"

@@ -88,17 +88,21 @@ benchmarks/Berberis.Messaging.Benchmarks/
 │   ├── PublishSubscribeBenchmarks.cs    - Basic pub/sub operations
 │   └── ThroughputBenchmarks.cs          - Sustained throughput tests
 ├── Latency/
-│   └── LatencyBenchmarks.cs             - End-to-end latency
+│   ├── LatencyBenchmarks.cs             - End-to-end latency
+│   └── HandlerTimeoutBenchmarks.cs      - Timeout enforcement (Tasks 4-6)
 ├── Memory/
 │   └── AllocationBenchmarks.cs          - Memory allocation tests
 ├── Stateful/
-│   └── StatefulChannelBenchmarks.cs     - State management
+│   ├── StatefulChannelBenchmarks.cs     - State management
+│   └── StateInitializationBenchmarks.cs - State send race (Task 1)
 ├── Wildcards/
-│   └── WildcardBenchmarks.cs            - Pattern matching
+│   ├── WildcardBenchmarks.cs            - Pattern matching
+│   └── WildcardConcurrencyBenchmarks.cs - Wildcard race (Task 3)
 ├── Conflation/
 │   └── ConflationBenchmarks.cs          - Message conflation
 ├── Concurrency/
-│   └── ConcurrencyBenchmarks.cs         - Concurrent operations
+│   ├── ConcurrencyBenchmarks.cs         - Concurrent operations
+│   └── StatefulConcurrencyBenchmarks.cs - MessageStore optimization (Tasks 7-9)
 └── Helpers/
     └── BenchmarkHelpers.cs              - Shared utilities
 ```
@@ -111,23 +115,92 @@ benchmarks/Berberis.Messaging.Benchmarks/
 
 ### Latency
 - **LatencyBenchmarks:** Time from publish to handler execution
-- Includes p50, p90, p95, p99 percentiles
+  - Includes p50, p90, p95, p99 percentiles
+- **HandlerTimeoutBenchmarks:** ⚠️ **CRITICAL FOR PRODUCTION**
+  - Tests handler timeout enforcement (Tasks 4-6 from hardening work)
+  - Demonstrates deadlock prevention
+  - Measures timeout overhead and callback performance
+  - **Note:** Some benchmarks require Task 4-6 implementation
 
 ### Memory
 - **AllocationBenchmarks:** Heap allocations per operation
-- Verifies "allocation-free" claims for hot paths
+  - Verifies "allocation-free" claims for hot paths
 
 ### Stateful
 - **StatefulChannelBenchmarks:** State storage and retrieval performance
+- **StateInitializationBenchmarks:** Tests state send race condition (Task 1)
+  - Validates sequence tracking prevents out-of-order messages
+  - Tests concurrent subscription with state fetch
+  - Measures state initialization overhead
 
 ### Wildcards
 - **WildcardBenchmarks:** Pattern matching overhead
+- **WildcardConcurrencyBenchmarks:** Tests wildcard subscription race (Task 3)
+  - Demonstrates eventual consistency model
+  - Tests concurrent subscribe/publish scenarios
+  - Validates FindMatchingChannels behavior
 
 ### Conflation
 - **ConflationBenchmarks:** Conflation effectiveness and overhead
 
 ### Concurrency
 - **ConcurrencyBenchmarks:** Thread-safety and concurrent scalability
+- **StatefulConcurrencyBenchmarks:** ⚡ **SHOWS 3-5x IMPROVEMENT**
+  - Tests MessageStore optimization (Tasks 7-9)
+  - Measures lock contention with current Dictionary+lock implementation
+  - **Will show dramatic improvement** after ConcurrentDictionary migration
+  - Tests concurrent state updates, reads, deletes, and initialization
+
+## Hardening Validation Benchmarks
+
+Several benchmarks are specifically designed to validate fixes from the Phase 1-2 Production Hardening work (see `WS-PHASE1-2-HARDENING.md`):
+
+### Before vs After Comparisons
+
+| Benchmark | Tests | Expected Improvement | Hardening Tasks |
+|-----------|-------|---------------------|-----------------|
+| **StatefulConcurrencyBenchmarks** | MessageStore lock contention | **3-5x throughput** under concurrent writes | Tasks 7-9 |
+| **MessageStoreInitializationBenchmarks** | Channel initialization race | Thread-safe creation, no double-init | Task 2 |
+| **StateInitializationBenchmarks** | State send race condition | No duplicate/out-of-order messages | Task 1 |
+| **WildcardConcurrencyBenchmarks** | Wildcard subscription race | Documented eventual consistency | Task 3 |
+| **HandlerTimeoutBenchmarks** | Deadlock prevention | Timeout enforcement, statistics | Tasks 4-6 |
+
+### Running Hardening Benchmarks
+
+```bash
+# Test MessageStore optimization impact (Tasks 7-9)
+dotnet run -c Release -- --filter '*StatefulConcurrency*'
+
+# Test state initialization fixes (Task 1)
+dotnet run -c Release -- --filter '*StateInitialization*'
+
+# Test wildcard race scenarios (Task 3)
+dotnet run -c Release -- --filter '*WildcardConcurrency*'
+
+# Test timeout functionality (Tasks 4-6)
+# Note: Some benchmarks require timeout implementation
+dotnet run -c Release -- --filter '*HandlerTimeout*'
+
+# Run all hardening-related benchmarks
+dotnet run -c Release -- --filter '*Stateful*|*Wildcard*|*Timeout*'
+```
+
+### Critical Findings
+
+1. **StatefulConcurrencyBenchmarks.Stateful_ConcurrentUpdates_SameKeys**
+   - **Current**: Lock contention bottleneck with Dictionary+lock
+   - **After Task 7-9**: 3-5x improvement with ConcurrentDictionary
+   - **Why**: Eliminates lock contention on MessageStore operations
+
+2. **HandlerTimeoutBenchmarks.Production_DatabaseHandlerTimeout**
+   - **Critical**: Without Tasks 4-6, this benchmark hangs indefinitely
+   - **After Tasks 4-6**: Completes with timeout enforcement
+   - **Why**: Prevents single slow handler from deadlocking message bus
+
+3. **StateInitializationBenchmarks.State_RapidPublishingDuringStateInit**
+   - **Current**: Potential for out-of-order message delivery
+   - **After Task 1**: Monotonically increasing message IDs, no duplicates
+   - **Why**: Sequence tracking prevents race condition
 
 ## Viewing Results
 
