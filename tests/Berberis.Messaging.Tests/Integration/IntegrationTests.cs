@@ -103,7 +103,7 @@ public class IntegrationTests
     }
 
     [Fact]
-    public async Task EndToEnd_DisposeCleanup_NoResourceLeaks()
+    public void EndToEnd_DisposeCleanup_NoResourceLeaks()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();

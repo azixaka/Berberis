@@ -12,7 +12,7 @@ public struct Message<TBody>
     public TBody? Body { get; }
     public long TagA { get; }
 
-    public Message(long id, long timestamp, MessageType messageType, long correlationId, string? key, long inceptionTicks, string? from, TBody body, long tagA)
+    public Message(long id, long timestamp, MessageType messageType, long correlationId, string? key, long inceptionTicks, string? from, TBody? body, long tagA)
     {
         Id = id;
         Timestamp = timestamp;

@@ -289,7 +289,7 @@ public class ErrorHandlingAndEdgeCaseTests
     }
 
     [Fact]
-    public void Subscription_Dispose_StopsReceiving()
+    public async Task Subscription_Dispose_StopsReceiving()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
@@ -305,8 +305,8 @@ public class ErrorHandlingAndEdgeCaseTests
         sub.Dispose();
 
         // Assert - Further publishes should not be received
-        xBar.Publish("test.channel", TestHelpers.CreateTestMessage("after dispose"), false);
-        Task.Delay(100).Wait();
+        await xBar.Publish("test.channel", TestHelpers.CreateTestMessage("after dispose"), false);
+        await Task.Delay(100);
 
         receivedCount.Should().Be(0);
     }
