@@ -198,8 +198,13 @@ public sealed partial class Subscription<TBody> : ISubscription
                     // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD body except the PostProcessMessage call HERE
                     // The ProcessMessage code is called on every update (very often) OR in each conflation cycle (less often) OR when sending initial state (once for all the data)
                     // By copying its content here, we avoid massive async state machine allocations
-                    if (Volatile.Read(ref _isSuspended) == 1)
-                        await _resumeProcessingSignal.Task;
+                    while (Volatile.Read(ref _isSuspended) == 1)
+                    {
+                        var signal = _resumeProcessingSignal;
+                        if (Volatile.Read(ref _isSuspended) == 0)
+                            break;
+                        await signal.Task;
+                    }
 
                     var beforeServiceTicks = StatsTracker.GetTicks();
 
@@ -350,10 +355,14 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task<long> SendState()
     {
-        // Check if suspended before processing any state to handle
-        // the case where subscription is suspended immediately after creation
-        if (Volatile.Read(ref _isSuspended) == 1)
-            await _resumeProcessingSignal.Task;
+        // Wait while suspended to handle the case where subscription is suspended immediately after creation
+        while (Volatile.Read(ref _isSuspended) == 1)
+        {
+            var signal = _resumeProcessingSignal;
+            if (Volatile.Read(ref _isSuspended) == 0)
+                break;
+            await signal.Task;
+        }
 
         long maxSequenceId = -1;
 
@@ -384,8 +393,13 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task ProcessMessage(Message<TBody> message, long latencyTicks)
     {
-        if (Volatile.Read(ref _isSuspended) == 1)
-            await _resumeProcessingSignal.Task;
+        while (Volatile.Read(ref _isSuspended) == 1)
+        {
+            var signal = _resumeProcessingSignal;
+            if (Volatile.Read(ref _isSuspended) == 0)
+                break;
+            await signal.Task;
+        }
 
         var beforeServiceTicks = StatsTracker.GetTicks();
 
