@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace Berberis.Messaging;
 
+/// <summary>High-performance typed pub/sub message broker.</summary>
 public sealed partial class CrossBar : ICrossBar, IDisposable
 {
     private readonly ILoggerFactory _loggerFactory;
@@ -20,8 +21,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     private bool _tracingEnabled;
 
+    /// <summary>System channel for message traces.</summary>
     public string TracingChannel { get; } = "$message.traces";
 
+    /// <summary>Enable message tracing to TracingChannel.</summary>
     public bool MessageTracingEnabled
     {
         get => _tracingEnabled;
@@ -35,14 +38,23 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
+    /// <summary>Enable verbose publish logging.</summary>
     public bool PublishLoggingEnabled { get; set; }
 
+    /// <summary>Creates a new CrossBar instance.</summary>
+    /// <param name="loggerFactory">Logger factory.</param>
     public CrossBar(ILoggerFactory loggerFactory)
     {
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<CrossBar>();
     }
 
+    /// <summary>Publishes a message to a channel.</summary>
+    /// <param name="channelName">Channel name.</param>
+    /// <param name="message">Message to publish.</param>
+    /// <param name="store">Store in channel state.</param>
+    /// <exception cref="FailedPublishException">Store=true but key is missing.</exception>
+    /// <exception cref="ChannelTypeMismatchException">Type mismatch.</exception>
     public ValueTask Publish<TBody>(string channelName, Message<TBody> message, bool store)
     {
         var ticks = StatsTracker.GetTicks();
@@ -144,6 +156,14 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>Publishes a message body to a channel.</summary>
+    /// <param name="channelName">Channel name.</param>
+    /// <param name="body">Message body.</param>
+    /// <param name="correlationId">Correlation ID.</param>
+    /// <param name="key">State key (required if store=true).</param>
+    /// <param name="store">Store in channel state.</param>
+    /// <param name="from">Source identifier.</param>
+    /// <param name="tagA">Custom metadata tag.</param>
     public ValueTask Publish<TBody>(string channelName, TBody body, long correlationId, string? key, bool store, string? from, long tagA)
     {
         var message = new Message<TBody>(-1, DateTime.UtcNow.ToBinary(), MessageType.ChannelUpdate, correlationId, key, 0, from, body, tagA);
@@ -172,6 +192,11 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>Subscribes to channel messages.</summary>
+    /// <param name="channelName">Channel or wildcard pattern.</param>
+    /// <param name="handler">Message handler.</param>
+    /// <param name="options">Subscription options.</param>
+    /// <param name="token">Cancellation token.</param>
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           SubscriptionOptions? options,
                                           CancellationToken token = default)
@@ -180,6 +205,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                         TimeSpan.Zero, default, options, token);
     }
 
+    /// <summary>Subscribes to channel messages with name.</summary>
+    /// <param name="channelName">Channel or wildcard pattern.</param>
+    /// <param name="handler">Message handler.</param>
+    /// <param name="subscriptionName">Subscription name.</param>
+    /// <param name="options">Subscription options.</param>
+    /// <param name="token">Cancellation token.</param>
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
                                           SubscriptionOptions? options,
@@ -189,6 +220,16 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                         TimeSpan.Zero, default, options, token);
     }
 
+    /// <summary>Subscribes to channel messages with advanced options.</summary>
+    /// <param name="channelName">Channel or wildcard pattern.</param>
+    /// <param name="handler">Message handler.</param>
+    /// <param name="subscriptionName">Subscription name.</param>
+    /// <param name="fetchState">Deliver stored state first.</param>
+    /// <param name="slowConsumerStrategy">Backpressure handling strategy.</param>
+    /// <param name="bufferCapacity">Buffer size.</param>
+    /// <param name="conflationInterval">Message conflation interval.</param>
+    /// <param name="subscriptionStatsOptions">Statistics options.</param>
+    /// <param name="token">Cancellation token.</param>
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
@@ -199,6 +240,18 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return Subscribe(channelName, handler, subscriptionName, fetchState, slowConsumerStrategy, bufferCapacity, conflationInterval, subscriptionStatsOptions, null, token);
     }
 
+    /// <summary>Subscribes to channel messages with full options.</summary>
+    /// <param name="channelName">Channel or wildcard pattern.</param>
+    /// <param name="handler">Message handler.</param>
+    /// <param name="subscriptionName">Subscription name.</param>
+    /// <param name="fetchState">Deliver stored state first.</param>
+    /// <param name="slowConsumerStrategy">Backpressure handling strategy.</param>
+    /// <param name="bufferCapacity">Buffer size.</param>
+    /// <param name="conflationInterval">Message conflation interval.</param>
+    /// <param name="subscriptionStatsOptions">Statistics options.</param>
+    /// <param name="options">Subscription options (timeout, etc).</param>
+    /// <param name="token">Cancellation token.</param>
+    /// <exception cref="ChannelTypeMismatchException">Type mismatch.</exception>
     public ISubscription Subscribe<TBody>(string channelName, Func<Message<TBody>, ValueTask> handler,
                                           string? subscriptionName,
                                           bool fetchState, SlowConsumerStrategy slowConsumerStrategy, int? bufferCapacity,
@@ -456,6 +509,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
+    /// <summary>Gets all stored messages for a channel.</summary>
+    /// <param name="channelName">Channel name.</param>
     public IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
@@ -467,6 +522,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return Array.Empty<Message<TBody>>();
     }
 
+    /// <summary>Gets a stored message by key.</summary>
+    /// <param name="channelName">Channel name.</param>
+    /// <param name="key">Message key.</param>
+    /// <param name="message">Retrieved message.</param>
     public bool TryGetMessage<TBody>(string channelName, string key, out Message<TBody> message)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
@@ -479,6 +538,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return false;
     }
 
+    /// <summary>Deletes a stored message by key.</summary>
+    /// <param name="channelName">Channel name.</param>
+    /// <param name="key">Message key.</param>
     public bool TryDeleteMessage<TBody>(string channelName, string key)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
@@ -496,6 +558,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return false;
     }
 
+    /// <summary>Clears all stored messages in a channel.</summary>
+    /// <param name="channelName">Channel name.</param>
     public void ResetChannel<TBody>(string channelName)
     {
         var messageStore = GetChannelStore<TBody>(channelName);
@@ -506,8 +570,10 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
 
         Publish(channelName, new Message<TBody>(0, 0, MessageType.ChannelReset, 0, null, 0, null, default, 0));
-    }   
+    }
 
+    /// <summary>Deletes a channel and disposes subscriptions.</summary>
+    /// <param name="channelName">Channel name.</param>
     public bool TryDeleteChannel(string channelName)
     {
         if (_channels.TryRemove(channelName, out var channelProxy))
@@ -538,6 +604,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return null;
     }
 
+    /// <summary>Gets all channels.</summary>
     public IReadOnlyList<ChannelInfo> GetChannels()
     {
         EnsureNotDisposed();
@@ -554,6 +621,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                     }).ToList();
     }
 
+    /// <summary>Gets subscriptions for a channel.</summary>
+    /// <param name="channelName">Channel name.</param>
     public IReadOnlyCollection<SubscriptionInfo>? GetChannelSubscriptions(string channelName)
     {
         if (_channels.TryGetValue(channelName, out var channel))
@@ -577,7 +646,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return null;
     }
 
-    public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);   
+    /// <summary>Generates next correlation ID.</summary>
+    public long GetNextCorrelationId() => Interlocked.Increment(ref _globalCorrelationId);
 
     private Channel? GetSystemChannel(string channel)
     {
@@ -650,6 +720,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
     }
 
+    /// <summary>Disposes CrossBar and all subscriptions.</summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
