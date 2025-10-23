@@ -280,4 +280,209 @@ public class HandlerTimeoutTests
         // Note: When handler completes synchronously, CTS is never allocated
         // This test validates the fast path optimization
     }
+
+    [Fact]
+    public async Task HandlerTimeout_ConcurrentTimeouts_AllTrackedIndependently()
+    {
+        // VALIDATES: Multiple simultaneous timeouts tracked correctly
+        // SCENARIO:
+        //   1. Create 5 subscriptions on same channel, all with 50ms timeout
+        //   2. Publish message, all handlers sleep 200ms
+        //   3. Verify: 5 timeout callbacks invoked
+        //   4. Verify: Each subscription has timeoutCount == 1
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var timeoutCallbacks = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var subscriptionCount = 5;
+        var subscriptions = new List<ISubscription>();
+
+        for (int i = 0; i < subscriptionCount; i++)
+        {
+            var subName = $"sub-{i}";
+            var options = new SubscriptionOptions
+            {
+                HandlerTimeout = TimeSpan.FromMilliseconds(50),
+                OnTimeout = ex => { timeoutCallbacks.Add(ex.SubscriptionName); }
+            };
+
+            var sub = xBar.Subscribe<int>(
+                "test.channel",
+                async msg =>
+                {
+                    await Task.Delay(200); // Will timeout
+                },
+                subscriptionName: subName,
+                options: options,
+                token: default);
+
+            subscriptions.Add(sub);
+        }
+
+        // Publish single message - will be delivered to all 5 subscriptions
+        await xBar.Publish("test.channel", 42);
+
+        await Task.Delay(1000); // Wait for all timeouts
+
+        // Assert: All 5 subscriptions timed out
+        timeoutCallbacks.Should().HaveCount(subscriptionCount);
+
+        // Assert: Each subscription tracked its own timeout
+        foreach (var sub in subscriptions)
+        {
+            sub.GetTimeoutCount().Should().Be(1);
+        }
+    }
+
+    [Fact]
+    public async Task HandlerTimeout_MultipleConsecutiveTimeouts_AllRecorded()
+    {
+        // VALIDATES: Multiple consecutive timeouts are tracked correctly
+        // SCENARIO:
+        //   1. Configure timeout with callback
+        //   2. Publish 3 messages that all timeout
+        //   3. Verify: All 3 timeouts recorded
+        //   4. Verify: Timeout callback invoked 3 times
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var timeoutCallbackCount = 0;
+        var handlerInvocations = 0;
+
+        var options = new SubscriptionOptions
+        {
+            HandlerTimeout = TimeSpan.FromMilliseconds(50),
+            OnTimeout = ex =>
+            {
+                Interlocked.Increment(ref timeoutCallbackCount);
+                ex.Should().NotBeNull();
+                ex.ChannelName.Should().Be("test.channel");
+            }
+        };
+
+        var subscription = xBar.Subscribe<int>(
+            "test.channel",
+            async msg =>
+            {
+                Interlocked.Increment(ref handlerInvocations);
+                await Task.Delay(200); // All messages will timeout (timeout is 50ms)
+            },
+            options: options,
+            token: default);
+
+        // Publish 3 messages that will all timeout
+        await xBar.Publish("test.channel", 1);
+        await Task.Delay(150);
+        await xBar.Publish("test.channel", 2);
+        await Task.Delay(150);
+        await xBar.Publish("test.channel", 3);
+        await Task.Delay(300);
+
+        // Assert: All messages were attempted
+        handlerInvocations.Should().Be(3);
+
+        // Assert: All 3 timeouts recorded in subscription
+        subscription.GetTimeoutCount().Should().Be(3);
+
+        // Assert: Timeout callback invoked for each timeout
+        timeoutCallbackCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task HandlerTimeout_DuringDisposal_CleansUpGracefully()
+    {
+        // VALIDATES: No resource leaks when disposing during timeout
+        // SCENARIO:
+        //   1. Start handler that will timeout (sleep 5s, timeout 50ms)
+        //   2. After timeout starts, dispose subscription
+        //   3. Verify: Disposal completes cleanly
+        //   4. Verify: MessageLoop task completes
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var handlerStarted = new ManualResetEventSlim(false);
+
+        var options = new SubscriptionOptions
+        {
+            HandlerTimeout = TimeSpan.FromMilliseconds(100)
+        };
+
+        var subscription = xBar.Subscribe<string>(
+            "test.channel",
+            async msg =>
+            {
+                handlerStarted.Set();
+                await Task.Delay(5000); // Long-running handler
+            },
+            options: options,
+            token: default);
+
+        // Trigger handler
+        await xBar.Publish("test.channel", "test");
+        handlerStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+
+        // Wait for timeout to start
+        await Task.Delay(150);
+
+        // Dispose during timeout
+        subscription.Dispose();
+
+        // Assert: MessageLoop completes
+        await Task.WhenAny(subscription.MessageLoop, Task.Delay(2000));
+        subscription.MessageLoop.IsCompleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HandlerTimeout_DuringConflationFlush_EachFlushTimesIndependently()
+    {
+        // VALIDATES: Each conflation flush can timeout independently
+        // SCENARIO:
+        //   1. Conflation interval: 200ms, timeout: 100ms
+        //   2. Handler sleeps 150ms (exceeds timeout)
+        //   3. Verify: Each flush times out separately
+        //   4. Verify: Conflation loop continues after timeouts
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var flushCount = 0;
+        var timeoutCount = 0;
+
+        var options = new SubscriptionOptions
+        {
+            HandlerTimeout = TimeSpan.FromMilliseconds(100),
+            OnTimeout = ex => { Interlocked.Increment(ref timeoutCount); }
+        };
+
+        xBar.Subscribe<int>(
+            "test.channel",
+            async msg =>
+            {
+                Interlocked.Increment(ref flushCount);
+                await Task.Delay(150); // Exceeds timeout
+            },
+            subscriptionName: null,
+            fetchState: false,
+            slowConsumerStrategy: SlowConsumerStrategy.SkipUpdates,
+            bufferCapacity: null,
+            conflationInterval: TimeSpan.FromMilliseconds(200),
+            subscriptionStatsOptions: default,
+            options: options,
+            token: default);
+
+        // Publish rapidly for 2 seconds (expect ~10 conflation flushes)
+        var publishTask = Task.Run(async () =>
+        {
+            for (int i = 0; i < 200; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(i, key: "key-A"), false);
+                await Task.Delay(10);
+            }
+        });
+
+        await publishTask;
+        await Task.Delay(1000);
+
+        // Assert: Multiple flushes occurred
+        flushCount.Should().BeGreaterThan(5);
+
+        // Assert: Multiple timeouts occurred (one per flush)
+        timeoutCount.Should().BeGreaterThan(5);
+        timeoutCount.Should().Be(flushCount, "each flush should timeout independently");
+    }
 }

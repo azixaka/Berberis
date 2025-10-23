@@ -162,4 +162,192 @@ public class MessageStorePerformanceTests
         state.Should().HaveCount(1, "All updates should be to same key");
         state.First().Body.Should().Be($"data-{iterations - 1}", "Should have latest update");
     }
+
+    [Fact]
+    public async Task MessageStore_HighContentionUpdates_NoDataCorruption()
+    {
+        // VALIDATES: Lock-based synchronization prevents corruption
+        // SCENARIO: 50 threads, each updating 1000 different keys simultaneously
+        // VALIDATES: All 50,000 messages stored correctly, no lost updates
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        const int threadCount = 50;
+        const int messagesPerThread = 1000;
+        const int totalMessages = threadCount * messagesPerThread;
+
+        var receivedCount = 0;
+        var manualResetEvent = new ManualResetEventSlim(false);
+
+        xBar.Subscribe<string>(
+            "test.channel",
+            msg =>
+            {
+                if (Interlocked.Increment(ref receivedCount) == totalMessages)
+                    manualResetEvent.Set();
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // 50 threads updating concurrently
+        var tasks = Enumerable.Range(0, threadCount)
+            .Select(async threadId =>
+            {
+                for (int i = 0; i < messagesPerThread; i++)
+                {
+                    var msg = TestHelpers.CreateTestMessage(
+                        $"thread{threadId}-msg{i}",
+                        key: $"thread{threadId}-key{i}");
+                    await xBar.Publish("test.channel", msg, store: true);
+                }
+            });
+
+        await Task.WhenAll(tasks);
+        manualResetEvent.Wait(TimeSpan.FromSeconds(30)).Should().BeTrue();
+
+        // Assert: All messages stored
+        var state = xBar.GetChannelState<string>("test.channel");
+        state.Should().HaveCount(totalMessages);
+
+        // Assert: No lost updates (each key present exactly once)
+        var keys = state.Select(m => m.Key).ToList();
+        keys.Should().OnlyHaveUniqueItems();
+        keys.Should().HaveCount(totalMessages);
+
+        Console.WriteLine($"MessageStore High Contention Test:");
+        Console.WriteLine($"  Threads: {threadCount}");
+        Console.WriteLine($"  Messages per thread: {messagesPerThread}");
+        Console.WriteLine($"  Total messages: {totalMessages}");
+        Console.WriteLine($"  All messages stored correctly with no corruption");
+    }
+
+    [Fact]
+    public async Task MessageStore_ConcurrentReadWrite_ConsistentSnapshots()
+    {
+        // VALIDATES: GetState() returns consistent snapshot during concurrent updates
+        // SCENARIO: Thread 1 continuously updates, Thread 2 continuously reads
+        // VALIDATES: No exceptions, no partial reads
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        const int durationMs = 3000;
+
+        var writeCount = 0;
+        var readCount = 0;
+        var inconsistentReads = 0;
+        var cts = new CancellationTokenSource(durationMs);
+
+        // Writer thread
+        var writeTask = Task.Run(async () =>
+        {
+            int counter = 0;
+            while (!cts.Token.IsCancellationRequested)
+            {
+                // Update same 100 keys repeatedly
+                for (int i = 0; i < 100; i++)
+                {
+                    var msg = TestHelpers.CreateTestMessage($"value-{counter++}", key: $"key-{i}");
+                    await xBar.Publish("test.channel", msg, store: true);
+                    Interlocked.Increment(ref writeCount);
+                }
+            }
+        });
+
+        // Reader thread
+        var readTask = Task.Run(() =>
+        {
+            while (!cts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    var state = xBar.GetChannelState<string>("test.channel");
+                    var list = state.ToList(); // Force enumeration
+
+                    // Verify snapshot consistency (no partial/torn reads)
+                    // After initial ramp-up, should always have 100 keys
+                    if (list.Count > 0 && list.Count < 100 && writeCount > 200)
+                    {
+                        Interlocked.Increment(ref inconsistentReads);
+                    }
+
+                    Interlocked.Increment(ref readCount);
+                }
+                catch
+                {
+                    // Any exception is a failure
+                    Interlocked.Increment(ref inconsistentReads);
+                }
+            }
+        });
+
+        await Task.WhenAll(writeTask, readTask);
+
+        // Assert: High throughput achieved
+        writeCount.Should().BeGreaterThan(1000);
+        readCount.Should().BeGreaterThan(100);
+
+        // Assert: No inconsistent reads
+        inconsistentReads.Should().Be(0);
+
+        Console.WriteLine($"MessageStore Concurrent Read/Write Test:");
+        Console.WriteLine($"  Duration: {durationMs}ms");
+        Console.WriteLine($"  Writes: {writeCount:N0} ({writeCount / (durationMs / 1000.0):N0} writes/sec)");
+        Console.WriteLine($"  Reads: {readCount:N0} ({readCount / (durationMs / 1000.0):N0} reads/sec)");
+        Console.WriteLine($"  Inconsistent reads: {inconsistentReads} (should be 0)");
+    }
+
+    [Fact]
+    public async Task MessageStore_LargeState_PerformanceBaseline()
+    {
+        // VALIDATES: Performance doesn't degrade significantly with large state
+        // SCENARIO: Store 100K messages with unique keys
+        // ESTABLISHES: Baseline for GetState(), Update(), TryGet() times
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        const int messageCount = 100_000;
+
+        var receivedCount = 0;
+        var completionEvent = new ManualResetEventSlim(false);
+
+        xBar.Subscribe<int>(
+            "test.channel",
+            msg =>
+            {
+                if (Interlocked.Increment(ref receivedCount) == messageCount)
+                    completionEvent.Set();
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Store 100K messages
+        var sw = Stopwatch.StartNew();
+
+        for (int i = 0; i < messageCount; i++)
+        {
+            var msg = TestHelpers.CreateTestMessage(i, key: $"key-{i}");
+            await xBar.Publish("test.channel", msg, store: true);
+        }
+
+        completionEvent.Wait(TimeSpan.FromMinutes(2)).Should().BeTrue();
+        sw.Stop();
+
+        var storeTime = sw.Elapsed;
+
+        // Benchmark GetState()
+        sw.Restart();
+        var state = xBar.GetChannelState<int>("test.channel");
+        var stateList = state.ToList();
+        sw.Stop();
+
+        var getStateTime = sw.Elapsed;
+
+        // Assert: Performance acceptable
+        stateList.Should().HaveCount(messageCount);
+        getStateTime.Should().BeLessThan(TimeSpan.FromSeconds(1),
+            "GetState() should complete within 1 second for 100K entries");
+
+        Console.WriteLine($"MessageStore Large State Performance Test:");
+        Console.WriteLine($"  Message count: {messageCount:N0}");
+        Console.WriteLine($"  Store time: {storeTime.TotalMilliseconds:N0}ms");
+        Console.WriteLine($"  GetState() time: {getStateTime.TotalMilliseconds:N0}ms");
+        Console.WriteLine($"  Throughput: {messageCount / storeTime.TotalSeconds:N0} msg/sec");
+    }
 }

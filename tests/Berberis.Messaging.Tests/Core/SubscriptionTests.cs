@@ -571,6 +571,172 @@ public class SubscriptionTests
         subscription.IsProcessingSuspended.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Suspension_ConcurrentSuspendResume_NoDeadlocks()
+    {
+        // VALIDATES: Thread-safe suspension state management (Subscription.cs:106-118)
+        // SCENARIO:
+        //   1. 10 threads rapidly toggle IsProcessingSuspended
+        //   2. Concurrent message publishing
+        //   3. Verify: No deadlocks, all messages eventually processed
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var processedCount = 0;
+        var expectedMessages = 1000;
+
+        var subscription = xBar.Subscribe<int>(
+            "test.channel",
+            msg =>
+            {
+                Interlocked.Increment(ref processedCount);
+                return ValueTask.CompletedTask;
+            },
+            default);
+
+        // Task: Rapid suspend/resume
+        var suspendTask = Task.Run(async () =>
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                subscription.IsProcessingSuspended = true;
+                await Task.Delay(5);
+                subscription.IsProcessingSuspended = false;
+                await Task.Delay(5);
+            }
+        });
+
+        // Task: Concurrent publishing
+        var publishTask = Task.Run(async () =>
+        {
+            for (int i = 0; i < expectedMessages; i++)
+            {
+                await xBar.Publish("test.channel", i);
+                await Task.Delay(1);
+            }
+        });
+
+        await Task.WhenAll(suspendTask, publishTask);
+        await Task.Delay(2000); // Allow all messages to be processed
+
+        // Assert: No deadlocks (test completes)
+        // Assert: All messages eventually processed
+        processedCount.Should().Be(expectedMessages);
+    }
+
+    [Fact]
+    public async Task Suspension_DuringMessageProcessing_CurrentMessageCompletes()
+    {
+        // VALIDATES: Current message completes, next message waits
+        // SCENARIO:
+        //   1. Handler processes message for 200ms
+        //   2. Suspend after 50ms
+        //   3. Verify: First message completes
+        //   4. Verify: Second message waits until resume
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var processedMessages = new List<int>();
+        var processingStarted = new ManualResetEventSlim(false);
+        var processingLock = new object();
+
+        var subscription = xBar.Subscribe<int>(
+            "test.channel",
+            async msg =>
+            {
+                if (msg.Body == 1)
+                {
+                    processingStarted.Set();
+                    await Task.Delay(200); // Long processing
+                }
+                lock (processingLock) { processedMessages.Add(msg.Body); }
+            },
+            default);
+
+        // Publish first message
+        await xBar.Publish("test.channel", 1);
+        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+
+        // Suspend while first message is processing
+        await Task.Delay(50);
+        subscription.IsProcessingSuspended = true;
+
+        // Publish second message
+        await xBar.Publish("test.channel", 2);
+
+        // Wait for first message to complete
+        await Task.Delay(300);
+
+        // Assert: First message completed despite suspension
+        lock (processingLock) { processedMessages.Should().Contain(1); }
+
+        // Assert: Second message NOT processed yet
+        lock (processingLock) { processedMessages.Should().NotContain(2); }
+
+        // Resume
+        subscription.IsProcessingSuspended = false;
+        await Task.Delay(200);
+
+        // Assert: Second message now processed
+        lock (processingLock) { processedMessages.Should().Contain(2); }
+    }
+
+    [Fact]
+    public async Task Suspension_WithConflation_PausesFlushLoop()
+    {
+        // VALIDATES: Conflation flush loop pauses during suspension
+        // SCENARIO:
+        //   1. Enable conflation (300ms)
+        //   2. Suspend subscription
+        //   3. Publish 100 messages
+        //   4. Wait 1 second (should have flushed 3 times normally)
+        //   5. Verify: No messages flushed while suspended
+        //   6. Resume, verify: Messages flushed
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var flushedMessages = new List<int>();
+        var flushLock = new object();
+
+        var subscription = xBar.Subscribe<int>(
+            "test.channel",
+            msg =>
+            {
+                lock (flushLock) { flushedMessages.Add(msg.Body); }
+                return ValueTask.CompletedTask;
+            },
+            subscriptionName: null,
+            fetchState: false,
+            slowConsumerStrategy: SlowConsumerStrategy.SkipUpdates,
+            bufferCapacity: null,
+            conflationInterval: TimeSpan.FromMilliseconds(300),
+            subscriptionStatsOptions: default,
+            token: default);
+
+        // Suspend immediately
+        subscription.IsProcessingSuspended = true;
+
+        // Publish 100 messages
+        for (int i = 0; i < 100; i++)
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(i, key: "key-A"), false);
+        }
+
+        // Wait 1 second (normally 3 flushes would occur)
+        await Task.Delay(1000);
+
+        // Assert: No flushes while suspended
+        lock (flushLock) { flushedMessages.Should().BeEmpty(); }
+
+        // Resume
+        subscription.IsProcessingSuspended = false;
+        await Task.Delay(1000);
+
+        // Assert: Messages flushed after resume
+        lock (flushLock)
+        {
+            flushedMessages.Should().NotBeEmpty();
+            flushedMessages.Should().Contain(99); // Latest value
+        }
+    }
+
     // Task 14: Disposal tests
     [Fact]
     public async Task Subscription_Dispose_StopsReceiving()
