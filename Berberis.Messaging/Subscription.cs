@@ -17,6 +17,10 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private int _isSuspended;
     private TaskCompletionSource _resumeProcessingSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private long _lastSentSequenceId = -1;
+    private readonly TimeSpan? _handlerTimeout;
+    private readonly Action<Exceptions.HandlerTimeoutException>? _onTimeoutAction;
+    private long _timeoutCount;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
         long id, string? subscriptionName, string channelName, int? bufferCapacity,
@@ -26,7 +30,8 @@ public sealed partial class Subscription<TBody> : ISubscription
         Action disposeAction,
         IReadOnlyCollection<Func<IEnumerable<Message<TBody>>>>? stateFactories,
         CrossBar crossBar, bool isSystemChannel, bool isWildcard,
-        StatsOptions statsOptions)
+        StatsOptions statsOptions,
+        SubscriptionOptions? options = null)
     {
         _logger = logger;
         Name = string.IsNullOrEmpty(subscriptionName) ? $"[{id}]" : $"{subscriptionName}-[{id}]";
@@ -41,6 +46,10 @@ public sealed partial class Subscription<TBody> : ISubscription
         _stateFactories = stateFactories;
         _crossBar = crossBar;
         _isSystemChannel = isSystemChannel;
+
+        // Extract timeout settings from options
+        _handlerTimeout = options?.HandlerTimeout;
+        _onTimeoutAction = options?.OnTimeout;
 
         SubscribedOn = DateTime.UtcNow;
 
@@ -117,10 +126,8 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task RunReadLoopAsync(CancellationToken token)
     {
-        //TODO: keep track of the last message seqid / timestamp sent on this subscription to prevent sending new update before or while sending the state!
-
         await Task.Yield();
-        await SendState();
+        _lastSentSequenceId = await SendState();
 
         Dictionary<string, Message<TBody>>? localState = null;
         Dictionary<string, Message<TBody>>? localStateBacking = null;
@@ -139,6 +146,16 @@ public sealed partial class Subscription<TBody> : ISubscription
         {
             while (_channel.Reader.TryRead(out var message))
             {
+                // Skip messages that were already sent during state initialization
+                if (message.Id <= _lastSentSequenceId)
+                {
+                    _logger.LogTrace(
+                        "Skipping message [{msgId}] on subscription [{sub}] - already sent in state",
+                        message.Id,
+                        Name);
+                    continue;
+                }
+
                 var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.IncNumOfDequeuedMessages();
 
@@ -167,12 +184,67 @@ public sealed partial class Subscription<TBody> : ISubscription
 
                     var beforeServiceTicks = StatsTracker.GetTicks();
 
-                    var task = _handleFunc(message);
-                    if (!task.IsCompleted)
-                        await task;
-                    // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
+                    try
+                    {
+                        if (_handlerTimeout.HasValue)
+                        {
+                            // Execute with timeout
+                            var task = _handleFunc(message);
+                            if (!task.IsCompleted)
+                                await task.AsTask().WaitAsync(_handlerTimeout.Value);
+                        }
+                        else
+                        {
+                            // No timeout - existing fast path (zero allocation)
+                            var task = _handleFunc(message);
+                            if (!task.IsCompleted)
+                                await task;
+                        }
+                        // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD HERE
 
-                    PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
+                        PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
+                    }
+                    catch (TimeoutException)
+                    {
+                        // Handler timed out
+                        if (_handlerTimeout.HasValue)
+                        {
+                            Interlocked.Increment(ref _timeoutCount);
+
+                            _logger.LogError(
+                                "Handler timeout after {TimeoutMs}ms on subscription [{SubscriptionName}], " +
+                                "channel [{ChannelName}], message [{MessageId}]",
+                                _handlerTimeout.Value.TotalMilliseconds,
+                                Name,
+                                ChannelName,
+                                message.Id);
+
+                            var timeoutEx = new Exceptions.HandlerTimeoutException(
+                                Name,
+                                ChannelName,
+                                message.Id,
+                                _handlerTimeout.Value);
+
+                            _onTimeoutAction?.Invoke(timeoutEx);
+
+                            Statistics.IncNumOfTimeouts();
+
+                            // Don't call PostProcessMessage - message failed to process
+                            // Subscription continues processing next message
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Other exceptions - existing error handling
+                        _logger.LogError(ex,
+                            "Handler exception on subscription [{SubscriptionName}], " +
+                            "channel [{ChannelName}], message [{MessageId}]",
+                            Name,
+                            ChannelName,
+                            message.Id);
+
+                        // Continue processing
+                    }
                 }
                 else
                 {
@@ -256,18 +328,32 @@ public sealed partial class Subscription<TBody> : ISubscription
         }
     }
 
-    private async Task SendState()
+    private async Task<long> SendState()
     {
+        long maxSequenceId = -1;
+
         if (_stateFactories != null)
             foreach (var stateFactory in _stateFactories)
             {
                 foreach (var message in stateFactory())
                 {
+                    maxSequenceId = Math.Max(maxSequenceId, message.Id);
+
                     var task = ProcessMessage(message, 0);
                     if (!task.IsCompleted)
                         await task;
                 }
             }
+
+        if (maxSequenceId > -1)
+        {
+            _logger.LogInformation(
+                "Sent state for subscription [{sub}], last seq ID: {seqId}",
+                Name,
+                maxSequenceId);
+        }
+
+        return maxSequenceId;
     }
 
     private async Task ProcessMessage(Message<TBody> message, long latencyTicks)
@@ -277,11 +363,66 @@ public sealed partial class Subscription<TBody> : ISubscription
 
         var beforeServiceTicks = StatsTracker.GetTicks();
 
-        var task = _handleFunc(message);
-        if (!task.IsCompleted)
-            await task;
+        try
+        {
+            if (_handlerTimeout.HasValue)
+            {
+                // Execute with timeout
+                var task = _handleFunc(message);
+                if (!task.IsCompleted)
+                    await task.AsTask().WaitAsync(_handlerTimeout.Value);
+            }
+            else
+            {
+                // No timeout - existing fast path (zero allocation)
+                var task = _handleFunc(message);
+                if (!task.IsCompleted)
+                    await task;
+            }
 
-        PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
+            PostProcessMessage(ref message, beforeServiceTicks, latencyTicks);
+        }
+        catch (TimeoutException)
+        {
+            // Handler timed out
+            if (_handlerTimeout.HasValue)
+            {
+                Interlocked.Increment(ref _timeoutCount);
+
+                _logger.LogError(
+                    "Handler timeout after {TimeoutMs}ms on subscription [{SubscriptionName}], " +
+                    "channel [{ChannelName}], message [{MessageId}]",
+                    _handlerTimeout.Value.TotalMilliseconds,
+                    Name,
+                    ChannelName,
+                    message.Id);
+
+                var timeoutEx = new Exceptions.HandlerTimeoutException(
+                    Name,
+                    ChannelName,
+                    message.Id,
+                    _handlerTimeout.Value);
+
+                _onTimeoutAction?.Invoke(timeoutEx);
+
+                Statistics.IncNumOfTimeouts();
+
+                // Don't call PostProcessMessage - message failed to process
+                // Subscription continues processing next message
+            }
+        }
+        catch (Exception ex)
+        {
+            // Other exceptions - existing error handling
+            _logger.LogError(ex,
+                "Handler exception on subscription [{SubscriptionName}], " +
+                "channel [{ChannelName}], message [{MessageId}]",
+                Name,
+                ChannelName,
+                message.Id);
+
+            // Continue processing
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -312,6 +453,11 @@ public sealed partial class Subscription<TBody> : ISubscription
                 StatsTracker.TicksToTimeMs(latencyTicks));
         }
     }
+
+    /// <summary>
+    /// Gets the number of times handlers have timed out on this subscription.
+    /// </summary>
+    public long GetTimeoutCount() => Volatile.Read(ref _timeoutCount);
 
     public void Dispose()
     {

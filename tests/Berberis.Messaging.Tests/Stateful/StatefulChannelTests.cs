@@ -333,4 +333,54 @@ public class StatefulChannelTests
         // Assert
         found.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Subscribe_StateDeliveryRaceCondition_NoDuplicates()
+    {
+        // This test validates the fix for Subscription.cs:120 race condition
+        // Scenario: Messages published during state initialization should not be duplicated
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var receivedMessages = new List<string>();
+        var messageEvent = new ManualResetEventSlim(false);
+
+        // Publish and store state messages
+        await xBar.Publish("orders", TestHelpers.CreateTestMessage("state-msg-1", key: "k1"), store: true);
+        await xBar.Publish("orders", TestHelpers.CreateTestMessage("state-msg-2", key: "k2"), store: true);
+        await xBar.Publish("orders", TestHelpers.CreateTestMessage("state-msg-3", key: "k3"), store: true);
+
+        // Act - Subscribe with fetchState and simultaneously publish new messages
+        // This simulates the race condition where messages arrive during state initialization
+        var subscription = xBar.Subscribe<string>("orders", msg =>
+        {
+            lock (receivedMessages)
+            {
+                receivedMessages.Add(msg.Body!);
+                if (receivedMessages.Count >= 5)
+                    messageEvent.Set();
+            }
+            return ValueTask.CompletedTask;
+        }, fetchState: true, default);
+
+        // Publish messages that might arrive during state delivery
+        await xBar.Publish("orders", TestHelpers.CreateTestMessage("concurrent-msg-1", key: "k4"), store: false);
+        await xBar.Publish("orders", TestHelpers.CreateTestMessage("concurrent-msg-2", key: "k5"), store: false);
+
+        messageEvent.Wait(TimeSpan.FromSeconds(3));
+
+        // Assert
+        receivedMessages.Should().HaveCount(5, "should receive 3 state messages + 2 new messages");
+
+        // Each message should appear exactly once (no duplicates due to race condition)
+        receivedMessages.Should().ContainSingle(m => m == "state-msg-1");
+        receivedMessages.Should().ContainSingle(m => m == "state-msg-2");
+        receivedMessages.Should().ContainSingle(m => m == "state-msg-3");
+        receivedMessages.Should().ContainSingle(m => m == "concurrent-msg-1");
+        receivedMessages.Should().ContainSingle(m => m == "concurrent-msg-2");
+
+        // Verify no message appears more than once
+        var duplicates = receivedMessages.GroupBy(m => m).Where(g => g.Count() > 1).ToList();
+        duplicates.Should().BeEmpty("no messages should be received more than once");
+    }
 }

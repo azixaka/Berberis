@@ -9,8 +9,7 @@ partial class CrossBar
     {
         private long _channelSequenceId;
 
-        private bool _messageStoreInitialised;
-        private IMessageStore _messageStore = null!;
+        private readonly ConcurrentDictionary<Type, object> _lazyMessageStores = new();
 
         public long NextMessageId() => Interlocked.Increment(ref _channelSequenceId);
 
@@ -36,18 +35,26 @@ partial class CrossBar
 
         public MessageStore<TBody> GetOrCreateMessageStore<TBody>()
         {
-            if (Volatile.Read(ref _messageStoreInitialised))
+            // Hot path - check if already initialized (no allocation)
+            if (_lazyMessageStores.TryGetValue(typeof(TBody), out var lazy))
             {
-                return (_messageStore as MessageStore<TBody>)!;
+                return ((Lazy<MessageStore<TBody>>)lazy).Value;
             }
 
-            //todo: address a race condition here in a maximum performance way!
-            var store = new MessageStore<TBody>();
-            _messageStore = store;
-            Volatile.Write(ref _messageStoreInitialised, true);
-            return store;
+            // Cold path - first time initialization (one-time allocation per type)
+            var newLazy = new Lazy<MessageStore<TBody>>(() => new MessageStore<TBody>());
+            lazy = _lazyMessageStores.GetOrAdd(typeof(TBody), newLazy);
+            return ((Lazy<MessageStore<TBody>>)lazy).Value;
         }
 
-        public MessageStore<TBody>? GetMessageStore<TBody>() => _messageStore as MessageStore<TBody>;
+        public MessageStore<TBody>? GetMessageStore<TBody>()
+        {
+            if (_lazyMessageStores.TryGetValue(typeof(TBody), out var lazy))
+            {
+                var lazyStore = (Lazy<MessageStore<TBody>>)lazy;
+                return lazyStore.IsValueCreated ? lazyStore.Value : null;
+            }
+            return null;
+        }
     }
 }

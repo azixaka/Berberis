@@ -16,6 +16,8 @@ public sealed class StatsTracker
     private long _totalMessagesProcessed;
     private long _lastMessagesProcessed;
 
+    private long _numOfTimeouts;
+
     private long _lastTicks;
     private object _syncObj = new();
 
@@ -51,6 +53,10 @@ public sealed class StatsTracker
     internal void IncNumOfDequeuedMessages() => _totalMessagesDequeued++;
 
     internal void IncNumOfProcessedMessages() => _totalMessagesProcessed++;
+
+    internal void IncNumOfTimeouts() => Interlocked.Increment(ref _numOfTimeouts);
+
+    internal long GetNumOfTimeouts() => Volatile.Read(ref _numOfTimeouts);
 
     internal long RecordLatency(long startTicks)
     {
@@ -139,6 +145,8 @@ public sealed class StatsTracker
             }
         }
 
+        var numOfTimeouts = GetNumOfTimeouts();
+
         return new Stats(timePassed * 1000,
             intervalMessagesDequeued / timePassed,
             intervalMessagesProcessed / timePassed,
@@ -152,7 +160,8 @@ public sealed class StatsTracker
             latMin * MsRatio,
             latMax * MsRatio,
             svcMin * MsRatio,
-            svcMax * MsRatio
+            svcMax * MsRatio,
+            numOfTimeouts
             );
     }
 }

@@ -20,6 +20,8 @@ public interface ICrossBar
 
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, CancellationToken token = default);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string? subscriptionName, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, SubscriptionOptions? options, CancellationToken token = default);
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string? subscriptionName, SubscriptionOptions? options, CancellationToken token = default);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, CancellationToken token = default);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, string? subscriptionName, bool fetchState, CancellationToken token = default);
     ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler, bool fetchState, TimeSpan conflationInterval, CancellationToken token = default);
@@ -44,6 +46,16 @@ public interface ICrossBar
        int? bufferCapacity,
        TimeSpan conflationInterval,
        StatsOptions statsOptions,
+       CancellationToken token = default);
+
+    ISubscription Subscribe<TBody>(string channel, Func<Message<TBody>, ValueTask> handler,
+       string? subscriptionName,
+       bool fetchState,
+       SlowConsumerStrategy slowConsumerStrategy,
+       int? bufferCapacity,
+       TimeSpan conflationInterval,
+       StatsOptions statsOptions,
+       SubscriptionOptions? options,
        CancellationToken token = default);
 
     IEnumerable<Message<TBody>> GetChannelState<TBody>(string channelName);

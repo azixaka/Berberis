@@ -16,4 +16,6 @@ public interface ISubscription : IDisposable
     bool IsProcessingSuspended { get; set; }
 
     StatsTracker Statistics { get; }
+
+    long GetTimeoutCount();
 }

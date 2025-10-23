@@ -73,6 +73,11 @@ public readonly struct Stats
     public readonly float PercentileServiceTimeMs;
 
     /// <summary>
+    /// Total number of handler timeouts
+    /// </summary>
+    public readonly long NumOfTimeouts;
+
+    /// <summary>
     /// Average response time (latency + service time)
     /// </summary>
     public float AvgResponseTime { get => AvgLatencyTimeMs + AvgServiceTimeMs; }
@@ -117,7 +122,8 @@ public readonly struct Stats
         float minLatencyTimeMs,
         float maxLatencyTimeMs,
         float minServiceTimeMs,
-        float maxServiceTimeMs
+        float maxServiceTimeMs,
+        long numOfTimeouts = 0
         )
     {
         IntervalMs = intervalMs;
@@ -134,5 +140,6 @@ public readonly struct Stats
         MaxLatencyTimeMs = maxLatencyTimeMs;
         MinServiceTimeMs = minServiceTimeMs;
         MaxServiceTimeMs = maxServiceTimeMs;
+        NumOfTimeouts = numOfTimeouts;
     }
 }
