@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace Berberis.Messaging;
 
@@ -8,56 +9,43 @@ partial class CrossBar
 
     internal sealed class MessageStore<TBody> : IMessageStore
     {
-        private Dictionary<string, Message<TBody>> _state { get; } = new();
+        private readonly ConcurrentDictionary<string, Message<TBody>> _state = new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(Message<TBody> message)
         {
-            lock (_state)
-            {
-                _state[message.Key!] = message;
-            }
+            // Lock-free update using ConcurrentDictionary
+            // No allocations on hot path - just stores reference
+            _state[message.Key!] = message;
         }
 
         public IEnumerable<Message<TBody>> GetState()
         {
-            List<Message<TBody>> state;
-
-            lock (_state)
-            {
-                state = new List<Message<TBody>>(_state.Values);
-            }
-
-            return state;
+            // Return snapshot as array
+            // ToArray() is thread-safe with ConcurrentDictionary
+            // This allocates, but GetState is not a hot path
+            return _state.Values.ToArray();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(string key, out Message<TBody> message)
         {
-            lock (_state)
-            {
-                return _state.TryGetValue(key, out message);
-            }
+            // Lock-free read, no allocations
+            return _state.TryGetValue(key, out message);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryDelete(string key)
         {
-            bool removed = false;
-            lock (_state)
-            {
-                removed = _state.Remove(key);
-            }
-
-            return removed;
+            // Lock-free delete, no allocations
+            return _state.TryRemove(key, out _);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Reset()
         {
-            lock (_state)
-            {
-                _state.Clear();
-            }
+            // Thread-safe clear, no allocations
+            _state.Clear();
         }
     }
 }

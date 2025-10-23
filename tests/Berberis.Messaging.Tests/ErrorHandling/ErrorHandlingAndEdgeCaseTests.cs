@@ -1,4 +1,5 @@
 using Berberis.Messaging;
+using Berberis.Messaging.Exceptions;
 using Berberis.Messaging.Tests.Helpers;
 using FluentAssertions;
 using Xunit;
@@ -13,33 +14,54 @@ public class ErrorHandlingAndEdgeCaseTests
 {
     // Task 40: Invalid channel names
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task Publish_InvalidChannelName_ThrowsArgumentException(string? channelName)
+    [Fact]
+    public async Task Publish_NullChannelName_ThrowsArgumentNullException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
         var msg = TestHelpers.CreateTestMessage("test");
 
         // Act & Assert
-        var act = async () => await xBar.Publish(channelName!, msg, store: false);
-        await act.Should().ThrowAsync<ArgumentException>();
+        var act = async () => await xBar.Publish(null!, msg, store: false);
+        await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
     [Theory]
-    [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Subscribe_InvalidChannelName_ThrowsArgumentException(string? channelName)
+    public async Task Publish_InvalidChannelName_ThrowsInvalidChannelNameException(string channelName)
+    {
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var msg = TestHelpers.CreateTestMessage("test");
+
+        // Act & Assert
+        var act = async () => await xBar.Publish(channelName, msg, store: false);
+        await act.Should().ThrowAsync<InvalidChannelNameException>();
+    }
+
+    [Fact]
+    public void Subscribe_NullChannelName_ThrowsArgumentNullException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
 
         // Act & Assert
-        var act = () => xBar.Subscribe<string>(channelName!, _ => ValueTask.CompletedTask, CancellationToken.None);
-        act.Should().Throw<ArgumentException>();
+        var act = () => xBar.Subscribe<string>(null!, _ => ValueTask.CompletedTask, CancellationToken.None);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Subscribe_InvalidChannelName_ThrowsInvalidChannelNameException(string channelName)
+    {
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+
+        // Act & Assert
+        var act = () => xBar.Subscribe<string>(channelName, _ => ValueTask.CompletedTask, CancellationToken.None);
+        act.Should().Throw<InvalidChannelNameException>();
     }
 
     // Task 41: Null parameters
@@ -71,7 +93,7 @@ public class ErrorHandlingAndEdgeCaseTests
     // Task 42: Type mismatches
 
     [Fact]
-    public async Task Publish_TypeMismatch_ThrowsInvalidOperationException()
+    public async Task Publish_TypeMismatch_ThrowsChannelTypeMismatchException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
@@ -80,11 +102,11 @@ public class ErrorHandlingAndEdgeCaseTests
         // Act & Assert - Try to publish int to string channel
         var intMessage = TestHelpers.CreateTestMessage(42);
         var act = async () => await xBar.Publish("test.channel", intMessage, store: false);
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        await act.Should().ThrowAsync<ChannelTypeMismatchException>();
     }
 
     [Fact]
-    public void Subscribe_DifferentTypeSameChannel_ThrowsInvalidOperationException()
+    public void Subscribe_DifferentTypeSameChannel_ThrowsChannelTypeMismatchException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
@@ -92,7 +114,7 @@ public class ErrorHandlingAndEdgeCaseTests
 
         // Act & Assert
         var act = () => xBar.Subscribe<int>("test.channel", _ => ValueTask.CompletedTask, CancellationToken.None);
-        act.Should().Throw<InvalidOperationException>();
+        act.Should().Throw<ChannelTypeMismatchException>();
     }
 
     // Task 43: Buffer overflow scenarios

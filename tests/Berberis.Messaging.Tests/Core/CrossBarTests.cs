@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Berberis.Messaging.Exceptions;
 using Berberis.Messaging.Tests.Helpers;
 
 namespace Berberis.Messaging.Tests.Core;
@@ -146,7 +147,7 @@ public partial class CrossBarTests
 
     // Task 7: Type safety tests
     [Fact]
-    public async Task Publish_TypeMismatch_ThrowsInvalidOperationException()
+    public async Task Publish_TypeMismatch_ThrowsChannelTypeMismatchException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
@@ -156,12 +157,12 @@ public partial class CrossBarTests
         var intMessage = TestHelpers.CreateTestMessage(42);
         var act = async () => await xBar.Publish("test.channel", intMessage, store: false);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<ChannelTypeMismatchException>()
            .WithMessage("*type*");
     }
 
     [Fact]
-    public void Subscribe_DifferentTypeSameChannel_ThrowsInvalidOperationException()
+    public void Subscribe_DifferentTypeSameChannel_ThrowsChannelTypeMismatchException()
     {
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
@@ -170,7 +171,7 @@ public partial class CrossBarTests
         // Act & Assert
         var act = () => xBar.Subscribe<int>("test.channel", _ => ValueTask.CompletedTask, default);
 
-        act.Should().Throw<InvalidOperationException>()
+        act.Should().Throw<ChannelTypeMismatchException>()
            .WithMessage("*type*");
     }
 

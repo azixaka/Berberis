@@ -1,4 +1,5 @@
-﻿using Berberis.Messaging.Statistics;
+﻿using Berberis.Messaging.Exceptions;
+using Berberis.Messaging.Statistics;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -137,7 +138,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             _logger.LogWarning("Failed to publish [{pubType}] message type on channel [{channel}] registered with type [{chanType}]",
                 pubType.Name, channelName, channel.BodyType.Name);
 
-            return ValueTask.FromException(new InvalidOperationException($"Can't publish [{pubType.Name}] message type on channel [{channelName}] registered with type [{channel.BodyType.Name}]"));
+            return ValueTask.FromException(new ChannelTypeMismatchException(channelName, channel.BodyType, pubType));
         }
 
         return ValueTask.CompletedTask;
@@ -256,7 +257,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         else // not the type Subscribe caller was expecting
         {
             _logger.LogWarning("Failed to subscribe on channel [{channel}] with type [{subType}] as it's already registered with type [{regType}]", channelName, subType.Name, channel.BodyType.Name);
-            throw new InvalidOperationException($"Can't subscribe on channel [{channelName}] with type [{subType.Name}] as it's already registered with type [{channel.BodyType.Name}]");
+            throw new ChannelTypeMismatchException(channelName, channel.BodyType, subType);
         }
     }
 
@@ -446,7 +447,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             else // not the type Subscribe caller was expecting
             {
                 _logger.LogWarning("Failed to subscribe on channel [{channel}] with type [{subType}] as it's already registered with type [{regType}]", channelName, subType.Name, channel.BodyType.Name);
-                throw new InvalidOperationException($"Can't subscribe on channel [{channelName}] with type [{subType.Name}] as it's already registered with type [{channel.BodyType.Name}]");
+                throw new ChannelTypeMismatchException(channelName, channel.BodyType, subType);
             }
         }
         else
@@ -679,13 +680,13 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
             throw new ArgumentNullException(paramName, "Channel name cannot be null");
 
         if (string.IsNullOrWhiteSpace(channelName))
-            throw new ArgumentException("Channel name cannot be empty or whitespace", paramName);
+            throw new InvalidChannelNameException(channelName, "cannot be empty or whitespace");
 
         if (channelName.Length > 256)
-            throw new ArgumentException("Channel name too long (max 256 characters)", paramName);
+            throw new InvalidChannelNameException(channelName, "too long (max 256 characters)");
 
         if (channelName.Contains(".."))
-            throw new ArgumentException("Channel name cannot contain consecutive dots", paramName);
+            throw new InvalidChannelNameException(channelName, "cannot contain consecutive dots");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
