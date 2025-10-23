@@ -10,13 +10,13 @@ partial class CrossBar
         private long _channelSequenceId;
 
         private bool _messageStoreInitialised;
-        private IMessageStore _messageStore;
+        private IMessageStore _messageStore = null!;
 
         public long NextMessageId() => Interlocked.Increment(ref _channelSequenceId);
 
-        public Type BodyType { get; init; }
+        public required Type BodyType { get; init; }
 
-        public string Name { get; init; }
+        public required string Name { get; init; }
 
         public Channel()
         {

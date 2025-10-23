@@ -32,7 +32,7 @@ public static class CrossBarExtensions
 
             writer.WriteEndObject();
 
-            foreach (var subscription in crossBar.GetChannelSubscriptions(channel.Name))
+            foreach (var subscription in crossBar.GetChannelSubscriptions(channel.Name) ?? [])
             {
                 if (!subscriptions.ContainsKey(subscription.Name))
                 {

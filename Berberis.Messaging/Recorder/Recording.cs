@@ -8,10 +8,10 @@ namespace Berberis.Recorder;
 
 public sealed class Recording<TBody> : IRecording
 {
-    private ISubscription _subscription;
-    private Stream _stream;
-    private IMessageBodySerializer<TBody> _serialiser;
-    private Pipe _pipe;
+    private ISubscription _subscription = null!;
+    private Stream _stream = null!;
+    private IMessageBodySerializer<TBody> _serialiser = null!;
+    private Pipe _pipe = null!;
     private readonly RecorderStatsReporter _recorderStatsReporter = new();
     private volatile bool _ready;
 
@@ -142,7 +142,7 @@ public sealed class Recording<TBody> : IRecording
         }
     }
 
-    public Task MessageLoop { get; private set; }
+    public Task MessageLoop { get; private set; } = null!;
 
     public void Dispose()
     {
