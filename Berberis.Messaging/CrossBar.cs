@@ -447,7 +447,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         if (recursivePosition > 0)
         {
             var prefix = pattern.AsSpan().Slice(0, recursivePosition);
-            return channelName.AsSpan().StartsWith(prefix);
+            var nameSpan = channelName.AsSpan();
+            return nameSpan.StartsWith(prefix) && nameSpan.Length > prefix.Length;
         }
 
         // Span-based segment matching (allocation-free)
