@@ -32,41 +32,79 @@ Berberis CrossBar delivers exceptional throughput and ultra-low latency with a c
 
 | Metric | Value |
 |--------|-------|
-| **Throughput** | **~3.5M messages/sec** |
+| **Pure Publish Throughput** | **~4.57M messages/sec** |
+| **Sustained Throughput** | **~3.17M messages/sec** |
 | **Single Message Publish** | **287 ns** |
 | **End-to-End Latency** | **873 ns** |
 | **Hot Path Allocations** | **0 bytes** |
 
-### Detailed Benchmarks
+### Core Performance
 
 **Allocation-Free Hot Path** (proves zero-allocation operation):
 ```
 Method                    | Mean        | Allocated
 ------------------------- | ----------- | ---------
-SinglePublish             | 251.4 ns    | 0 B
-100 Publishes             | 20,749 ns   | 0 B
+Single Publish            | 251.4 ns    | 0 B
+100 Publishes             | 20,749 ns   | 0 B  (~4.82M msg/s)
 ```
 
-**Sustained Throughput** (messages/second):
+**Publish/Subscribe Operations**:
 ```
-MessageCount | Time       | Throughput
------------- | ---------- | ----------
-1,000        | 274.1 μs   | ~3.65M msg/s
-10,000       | 2,852 μs   | ~3.51M msg/s
-100,000      | 31,575 μs  | ~3.17M msg/s
+Operation                 | Time        | Throughput
+------------------------- | ----------- | ----------
+Single Publish            | 286.9 ns    | ~3.49M msg/s
+Publish + Receive         | 1,722.8 ns  | ~580K msg/s
+100 Messages              | 21.9 μs     | ~4.57M msg/s
 ```
 
-**Latency** (publish to receive):
+**Sustained Throughput** (with subscriber processing):
 ```
-Operation                 | Latency
-------------------------- | -------
-Publish → Receive         | 873 ns
-Single Publish            | 287 ns
+Messages  | Time       | Throughput    | Allocations
+--------- | ---------- | ------------- | -----------
+1,000     | 274.1 μs   | ~3.65M msg/s  | 0 B
+10,000    | 2,852 μs   | ~3.51M msg/s  | 3 B
+100,000   | 31,575 μs  | ~3.17M msg/s  | 23 B
+```
+
+**Concurrent Publishing** (8 concurrent publishers):
+```
+Publishers | Messages Each | Total Time  | Throughput
+---------- | ------------- | ----------- | ----------
+2          | 1,000         | 416.8 μs    | ~4.79M msg/s
+4          | 1,000         | 791.7 μs    | ~5.05M msg/s
+8          | 1,000         | 2,391.3 μs  | ~3.35M msg/s
+```
+
+**Multiple Subscribers** (fan-out performance):
+```
+Subscribers | Time per Publish
+----------- | ----------------
+1           | 274.4 ns
+3           | 1,496.3 ns  (~499 ns/subscriber)
+10          | 5,800.5 ns  (~580 ns/subscriber)
+```
+
+**Latency Distribution**:
+```
+Operation                 | Mean      | P50       | P90       | P95
+------------------------- | --------- | --------- | --------- | ---------
+Publish → Receive         | 872.9 ns  | 876.9 ns  | 878.0 ns  | 878.1 ns
+Synchronous Handler       | 253.9 ns  | -         | -         | -
+Async Handler (no await)  | 158.2 ns  | -         | -         | -
+```
+
+**Message Size Independence** (payload size has negligible impact):
+```
+Payload Size | Time
+------------ | ---------
+Small        | 270.5 ns
+1 KB         | 279.3 ns
+10 KB        | 278.1 ns
 ```
 
 > **Platform**: AMD Ryzen 9 5950X, Windows 11 (10.0.26200.6901), .NET 8.0.21 X64 RyuJIT AVX2
 
-For complete benchmark results, see the [benchmarks](./benchmarks) directory.
+For complete benchmark results with all scenarios (stateful channels, wildcards, conflation, etc.), see the [benchmarks](./benchmarks) directory.
 
 ## Getting Started
 
