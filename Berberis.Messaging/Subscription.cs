@@ -518,6 +518,20 @@ public sealed partial class Subscription<TBody> : ISubscription
         {
             try
             {
+                // Publish lifecycle event for subscription disposal (but not for system channel subscriptions)
+                if (!_isSystemChannel && _crossBar.LifecycleTrackingEnabled)
+                {
+                    _ = _crossBar.PublishSystem(_crossBar.LifecycleChannel,
+                        new LifecycleEvent
+                        {
+                            EventType = LifecycleEventType.SubscriptionDisposed,
+                            ChannelName = ChannelName,
+                            SubscriptionName = Name,
+                            MessageBodyType = MessageBodyType.FullName ?? MessageBodyType.Name,
+                            Timestamp = DateTime.UtcNow
+                        });
+                }
+
                 disposeAction();
             }
             finally

@@ -21,9 +21,13 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     private readonly FailedSubscriptionException _failedSubscriptionException = new();
 
     private bool _tracingEnabled;
+    private bool _lifecycleTrackingEnabled;
 
     /// <summary>System channel for message traces.</summary>
     public string TracingChannel => $"{_options.SystemChannelPrefix}message.traces";
+
+    /// <summary>System channel for lifecycle events.</summary>
+    public string LifecycleChannel => $"{_options.SystemChannelPrefix}lifecycle";
 
     /// <summary>Enable message tracing to TracingChannel.</summary>
     public bool MessageTracingEnabled
@@ -36,6 +40,20 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 _ = GetOrAddChannel<MessageTrace>(TracingChannel, typeof(MessageTrace));
                 _tracingEnabled = value;
             }
+        }
+    }
+
+    /// <summary>Enable lifecycle event tracking to LifecycleChannel.</summary>
+    public bool LifecycleTrackingEnabled
+    {
+        get => _lifecycleTrackingEnabled;
+        set
+        {
+            if (value && _lifecycleTrackingEnabled != value)
+            {
+                _ = GetOrAddChannel<LifecycleEvent>(LifecycleChannel, typeof(LifecycleEvent));
+            }
+            _lifecycleTrackingEnabled = value;
         }
     }
 
@@ -52,7 +70,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         _options = options ?? new CrossBarOptions();
         _options.Validate();
 
-        _tracingEnabled = _options.EnableMessageTracing;
+        MessageTracingEnabled = _options.EnableMessageTracing;
+        LifecycleTrackingEnabled = _options.EnableLifecycleTracking;
         PublishLoggingEnabled = _options.EnablePublishLogging;
     }
 
@@ -199,6 +218,22 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>Publishes a lifecycle event (internal helper).</summary>
+    private void PublishLifecycleEvent(LifecycleEventType eventType, string channelName, string? subscriptionName, Type messageBodyType)
+    {
+        if (!_lifecycleTrackingEnabled)
+            return;
+
+        _ = PublishSystem(LifecycleChannel, new LifecycleEvent
+        {
+            EventType = eventType,
+            ChannelName = channelName,
+            SubscriptionName = subscriptionName,
+            MessageBodyType = messageBodyType.FullName ?? messageBodyType.Name,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
     /// <summary>Subscribes to channel messages.</summary>
     /// <param name="channelName">Channel or wildcard pattern.</param>
     /// <param name="handler">Message handler.</param>
@@ -317,6 +352,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
             subscription.StartSubscription(token);
 
+            // Publish lifecycle event for subscription creation
+            PublishLifecycleEvent(LifecycleEventType.SubscriptionCreated, channelName, subscription.Name, typeof(TBody));
+
             return subscription;
         }
         else // not the type Subscribe caller was expecting
@@ -419,6 +457,9 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         }
 
         subscription.StartSubscription(token);
+
+        // Publish lifecycle event for wildcard subscription creation
+        PublishLifecycleEvent(LifecycleEventType.SubscriptionCreated, pattern, subscription.Name, typeof(TBody));
 
         return subscription;
     }
@@ -657,6 +698,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     {
         if (_channels.TryRemove(channelName, out var channelProxy))
         {
+            // Publish lifecycle event before notifying subscriptions (but not for lifecycle channel itself)
+            if (channelName != LifecycleChannel)
+            {
+                PublishLifecycleEvent(LifecycleEventType.ChannelDeleted, channelName, null, channelProxy.Value.BodyType);
+            }
+
             foreach (var (_, subscription) in channelProxy.Value.Subscriptions)
             {
                 if (!subscription.IsWildcard)
@@ -774,6 +821,12 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 };
 
                 ProcessWildcardSubscriptions(channel);
+
+                // Publish lifecycle event (but not for lifecycle channel itself to prevent recursion)
+                if (c != LifecycleChannel)
+                {
+                    PublishLifecycleEvent(LifecycleEventType.ChannelCreated, c, null, bodyType);
+                }
 
                 return channel;
             }))

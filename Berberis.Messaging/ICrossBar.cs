@@ -98,6 +98,9 @@ public interface ICrossBar
     /// <summary>Enable message tracing.</summary>
     bool MessageTracingEnabled { get; set; }
 
+    /// <summary>Enable lifecycle event tracking.</summary>
+    bool LifecycleTrackingEnabled { get; set; }
+
     /// <summary>Enable verbose publish logging.</summary>
     bool PublishLoggingEnabled { get; set; }
 }

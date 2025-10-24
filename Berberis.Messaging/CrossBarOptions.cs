@@ -67,6 +67,15 @@ public class CrossBarOptions
     public bool EnableMessageTracing { get; set; } = false;
 
     /// <summary>
+    /// Enable lifecycle event tracking to system lifecycle channel.
+    /// </summary>
+    /// <remarks>
+    /// When enabled, channel and subscription creation/deletion events are published to the system lifecycle channel.
+    /// Useful for topology visualization and monitoring with minimal overhead (events only on creation/deletion).
+    /// </remarks>
+    public bool EnableLifecycleTracking { get; set; } = false;
+
+    /// <summary>
     /// Enable verbose logging of publish operations.
     /// </summary>
     /// <remarks>
