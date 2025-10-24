@@ -17,5 +17,7 @@ partial class CrossBar
         public DateTime LastPublishedAt { get; init; }
         /// <summary>Last publisher identifier.</summary>
         public string? LastPublishedBy { get; init; }
+        /// <summary>Number of stored messages (0 if no store).</summary>
+        public int StoredMessageCount { get; init; }
     }
 }

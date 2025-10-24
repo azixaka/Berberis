@@ -744,7 +744,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                         BodyType = kvp.Value.Value.BodyType,
                         Statistics = kvp.Value.Value.Statistics,
                         LastPublishedAt = kvp.Value.Value.LastPublishedAt,
-                        LastPublishedBy = kvp.Value.Value.LastPublishedBy
+                        LastPublishedBy = kvp.Value.Value.LastPublishedBy,
+                        StoredMessageCount = kvp.Value.Value.GetStoredMessageCount()
                     }).ToList();
     }
 

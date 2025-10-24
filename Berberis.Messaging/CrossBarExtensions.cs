@@ -31,6 +31,7 @@ public static class CrossBarExtensions
             WriteFloatingPointNumber(writer, useMnemonics ? "InMs" : "IntervalMs", channelStats.IntervalMs, 2);
             WriteFloatingPointNumber(writer, useMnemonics ? "Rt" : "PublishRate", channelStats.PublishRate, 2);
             writer.WriteNumber(useMnemonics ? "TMsg" : "TotalMessages", channelStats.TotalMessages);
+            writer.WriteNumber(useMnemonics ? "StCnt" : "StoredMessageCount", channel.StoredMessageCount);
 
             writer.WriteEndObject();
 

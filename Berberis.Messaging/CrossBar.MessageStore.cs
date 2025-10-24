@@ -4,11 +4,25 @@ namespace Berberis.Messaging;
 
 partial class CrossBar
 {
-    internal interface IMessageStore { }
+    internal interface IMessageStore
+    {
+        int Count { get; }
+    }
 
     internal sealed class MessageStore<TBody> : IMessageStore
     {
         private Dictionary<string, Message<TBody>> _state { get; } = new();
+
+        public int Count
+        {
+            get
+            {
+                lock (_state)
+                {
+                    return _state.Count;
+                }
+            }
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(Message<TBody> message)

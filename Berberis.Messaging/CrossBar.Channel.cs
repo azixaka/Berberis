@@ -9,7 +9,8 @@ partial class CrossBar
     {
         private long _channelSequenceId;
 
-        private readonly ConcurrentDictionary<Type, object> _lazyMessageStores = new();
+        private readonly object _messageStoreLock = new();
+        private IMessageStore? _messageStore;
 
         public long NextMessageId() => Interlocked.Increment(ref _channelSequenceId);
 
@@ -35,26 +36,35 @@ partial class CrossBar
 
         public MessageStore<TBody> GetOrCreateMessageStore<TBody>()
         {
-            // Hot path - check if already initialized (no allocation)
-            if (_lazyMessageStores.TryGetValue(typeof(TBody), out var lazy))
-            {
-                return ((Lazy<MessageStore<TBody>>)lazy).Value;
-            }
+            // Type safety check (defensive, negligible cost ~1ns)
+            if (typeof(TBody) != BodyType)
+                throw new InvalidOperationException($"MessageStore type {typeof(TBody).Name} doesn't match channel type {BodyType.Name}");
 
-            // Cold path - first time initialization (one-time allocation per type)
-            var newLazy = new Lazy<MessageStore<TBody>>(() => new MessageStore<TBody>());
-            lazy = _lazyMessageStores.GetOrAdd(typeof(TBody), newLazy);
-            return ((Lazy<MessageStore<TBody>>)lazy).Value;
+            // Hot path - check without lock (allocation-free after initialization)
+            var store = Volatile.Read(ref _messageStore);
+            if (store != null)
+                return (MessageStore<TBody>)store;
+
+            // Cold path - double-checked locking for thread-safe initialization
+            lock (_messageStoreLock)
+            {
+                if (_messageStore == null)
+                    _messageStore = new MessageStore<TBody>();
+
+                return (MessageStore<TBody>)_messageStore;
+            }
         }
 
         public MessageStore<TBody>? GetMessageStore<TBody>()
         {
-            if (_lazyMessageStores.TryGetValue(typeof(TBody), out var lazy))
-            {
-                var lazyStore = (Lazy<MessageStore<TBody>>)lazy;
-                return lazyStore.IsValueCreated ? lazyStore.Value : null;
-            }
-            return null;
+            var store = Volatile.Read(ref _messageStore);
+            return store as MessageStore<TBody>;
+        }
+
+        public int GetStoredMessageCount()
+        {
+            var store = Volatile.Read(ref _messageStore);
+            return store?.Count ?? 0;
         }
     }
 }

@@ -57,7 +57,7 @@ public class LifecycleTrackingTests
         events.Should().ContainSingle(e =>
             e.EventType == LifecycleEventType.SubscriptionCreated &&
             e.ChannelName == "test.channel" &&
-            e.SubscriptionName.Contains("TestSubscription"));
+            e.SubscriptionName != null && e.SubscriptionName.Contains("TestSubscription"));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class LifecycleTrackingTests
         events.Should().Contain(e =>
             e.EventType == LifecycleEventType.SubscriptionDisposed &&
             e.ChannelName == "test.channel" &&
-            e.SubscriptionName.Contains("TestSubscription"));
+            e.SubscriptionName != null && e.SubscriptionName.Contains("TestSubscription"));
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class LifecycleTrackingTests
         events.Should().ContainSingle(e =>
             e.EventType == LifecycleEventType.SubscriptionCreated &&
             e.ChannelName == "test.*" &&
-            e.SubscriptionName.Contains("WildcardSub"));
+            e.SubscriptionName != null && e.SubscriptionName.Contains("WildcardSub"));
     }
 
     [Fact]
