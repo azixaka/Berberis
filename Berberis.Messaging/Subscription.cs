@@ -355,6 +355,10 @@ public sealed partial class Subscription<TBody> : ISubscription
 
     private async Task<long> SendState()
     {
+        // Yield to give caller a chance to set initial subscription state (e.g., suspension)
+        // This helps with tests that need to suspend immediately after subscription creation
+        await Task.Yield();
+
         // Wait while suspended to handle the case where subscription is suspended immediately after creation
         while (Volatile.Read(ref _isSuspended) == 1)
         {
@@ -371,6 +375,15 @@ public sealed partial class Subscription<TBody> : ISubscription
             {
                 foreach (var message in stateFactory())
                 {
+                    // Check suspension before each message to handle suspension set during state fetch
+                    while (Volatile.Read(ref _isSuspended) == 1)
+                    {
+                        var signal = _resumeProcessingSignal;
+                        if (Volatile.Read(ref _isSuspended) == 0)
+                            break;
+                        await signal.Task;
+                    }
+
                     maxSequenceId = Math.Max(maxSequenceId, message.Id);
 
                     var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
