@@ -11,6 +11,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<CrossBar> _logger;
+    private readonly CrossBarOptions _options;
     private long _globalSubId;
     private long _globalCorrelationId;
     private readonly ConcurrentDictionary<string, Lazy<Channel>> _channels = new();
@@ -22,7 +23,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     private bool _tracingEnabled;
 
     /// <summary>System channel for message traces.</summary>
-    public string TracingChannel { get; } = "$message.traces";
+    public string TracingChannel => $"{_options.SystemChannelPrefix}message.traces";
 
     /// <summary>Enable message tracing to TracingChannel.</summary>
     public bool MessageTracingEnabled
@@ -43,10 +44,16 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
 
     /// <summary>Creates a new CrossBar instance.</summary>
     /// <param name="loggerFactory">Logger factory.</param>
-    public CrossBar(ILoggerFactory loggerFactory)
+    /// <param name="options">Configuration options. If null, default options are used.</param>
+    public CrossBar(ILoggerFactory loggerFactory, CrossBarOptions? options = null)
     {
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<CrossBar>();
+        _options = options ?? new CrossBarOptions();
+        _options.Validate();
+
+        _tracingEnabled = _options.EnableMessageTracing;
+        PublishLoggingEnabled = _options.EnablePublishLogging;
     }
 
     /// <summary>Publishes a message to a channel.</summary>
@@ -264,6 +271,11 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         ValidateChannelName(channelName, nameof(channelName));
         ValidateHandler(handler);
 
+        // Apply defaults from CrossBarOptions
+        bufferCapacity ??= _options.DefaultBufferCapacity;
+        if (conflationInterval == TimeSpan.Zero)
+            conflationInterval = _options.DefaultConflationInterval;
+
         if (IsSystemChannel(channelName))
         {
             return SubscribeSystem(channelName, handler, subscriptionName, token);
@@ -322,6 +334,11 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                                                       SubscriptionOptions? options = null,
                                                       CancellationToken token = default)
     {
+        // Apply defaults from CrossBarOptions
+        bufferCapacity ??= _options.DefaultBufferCapacity;
+        if (conflationInterval == TimeSpan.Zero)
+            conflationInterval = _options.DefaultConflationInterval;
+
         // KNOWN LIMITATION: Potential race condition in wildcard subscription registration
         //
         // Scenario:
@@ -545,7 +562,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 long id = Interlocked.Increment(ref _globalSubId);
 
                 var subscription = new Subscription<TBody>(_loggerFactory.CreateLogger<Subscription<TBody>>(),
-                                                               id, subscriptionName, channelName, 1000, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
+                                                               id, subscriptionName, channelName, _options.SystemChannelBufferCapacity, TimeSpan.Zero, SlowConsumerStrategy.SkipUpdates, handler,
                                                                () => Unsubscribe(channelName, id),
                                                                null, this, true, false, default);
 
@@ -741,6 +758,13 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         return _channels.GetOrAdd(channel,
             c => new Lazy<Channel>(() =>
             {
+                // Enforce MaxChannels limit if configured
+                // Note: _channels.Count includes the current channel being created (already added to dictionary)
+                if (_options.MaxChannels.HasValue && _channels.Count > _options.MaxChannels.Value)
+                {
+                    throw new InvalidOperationException($"Maximum number of channels ({_options.MaxChannels.Value}) reached. Cannot create channel '{c}'.");
+                }
+
                 _logger.LogInformation("Channel [{channel}] for type [{bodyType}] is created.", c, bodyType);
 
                 var channel = new Channel
@@ -808,7 +832,7 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ValidateChannelName(string channelName, string paramName)
+    private void ValidateChannelName(string channelName, string paramName)
     {
         if (channelName == null)
             throw new ArgumentNullException(paramName, "Channel name cannot be null");
@@ -816,8 +840,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
         if (string.IsNullOrWhiteSpace(channelName))
             throw new InvalidChannelNameException(channelName, "cannot be empty or whitespace");
 
-        if (channelName.Length > 256)
-            throw new InvalidChannelNameException(channelName, "too long (max 256 characters)");
+        if (channelName.Length > _options.MaxChannelNameLength)
+            throw new InvalidChannelNameException(channelName, $"too long (max {_options.MaxChannelNameLength} characters)");
 
         if (channelName.Contains(".."))
             throw new InvalidChannelNameException(channelName, "cannot contain consecutive dots");

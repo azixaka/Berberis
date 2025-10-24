@@ -181,6 +181,79 @@ await xBar.Publish(
 );
 ```
 
+### Configuration Options
+
+CrossBar can be configured with centralized defaults and system-wide settings using `CrossBarOptions`:
+
+```csharp
+var options = new CrossBarOptions
+{
+    DefaultBufferCapacity = 5000,                           // Null = unbounded (default), or set value for bounded
+    DefaultSlowConsumerStrategy = SlowConsumerStrategy.DropOldest,
+    DefaultConflationInterval = TimeSpan.FromMilliseconds(100),
+    MaxChannels = 1000,                                     // Limit total channels
+    MaxChannelNameLength = 512,                             // Max channel name length
+    EnableMessageTracing = false,                           // System-wide tracing
+    EnablePublishLogging = false,                           // Verbose publish logging
+    SystemChannelPrefix = "$",                              // Prefix for system channels
+    SystemChannelBufferCapacity = 1000                      // Buffer for system channels
+};
+
+ICrossBar xBar = new CrossBar(loggerFactory, options);
+
+// Subscriptions automatically use configured defaults
+xBar.Subscribe<StockPrice>("stock.prices", async msg =>
+{
+    // Uses configured defaults (or original Berberis defaults if options = null)
+    Console.WriteLine($"{msg.Body.Symbol}: ${msg.Body.Price}");
+});
+```
+
+### ASP.NET Core Integration
+
+CrossBar integrates seamlessly with ASP.NET Core's configuration and dependency injection:
+
+**appsettings.json:**
+```json
+{
+  "CrossBar": {
+    "DefaultBufferCapacity": 5000,
+    "MaxChannels": 1000,
+    "EnableMessageTracing": false
+  }
+}
+```
+
+**Program.cs:**
+```csharp
+// Configure options from appsettings.json
+builder.Services.Configure<CrossBarOptions>(
+    builder.Configuration.GetSection("CrossBar"));
+
+// Register CrossBar as singleton
+builder.Services.AddSingleton<ICrossBar>(sp =>
+{
+    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+    var options = sp.GetRequiredService<IOptions<CrossBarOptions>>().Value;
+    return new CrossBar(loggerFactory, options);
+});
+```
+
+**Usage in Services:**
+```csharp
+public class OrderService
+{
+    private readonly ICrossBar _xBar;
+
+    public OrderService(ICrossBar xBar)
+    {
+        _xBar = xBar;
+        // All subscriptions use config from appsettings.json
+        _xBar.Subscribe<Order>("orders.new", ProcessOrder);
+    }
+}
+```
+
 ## Advanced Features
 
 ### Stateful Channels
