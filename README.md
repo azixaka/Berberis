@@ -24,6 +24,50 @@ Berberis CrossBar is a high-performance, allocation-free in-process message brok
 
 - **Metrics Export**: With the MetricsToJson extension method, you can easily generate a comprehensive JSON report of metrics from all CrossBar channels and each subscription. This feature provides an efficient way to monitor and optimize the performance of your messaging system.
 
+## Performance
+
+Berberis CrossBar delivers exceptional throughput and ultra-low latency with a completely allocation-free hot path. Benchmarks run on AMD Ryzen 9 5950X (16 cores, 32 logical processors), Windows 11, .NET 8.0.21:
+
+### Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| **Throughput** | **~3.5M messages/sec** |
+| **Single Message Publish** | **287 ns** |
+| **End-to-End Latency** | **873 ns** |
+| **Hot Path Allocations** | **0 bytes** |
+
+### Detailed Benchmarks
+
+**Allocation-Free Hot Path** (proves zero-allocation operation):
+```
+Method                    | Mean        | Allocated
+------------------------- | ----------- | ---------
+SinglePublish             | 251.4 ns    | 0 B
+100 Publishes             | 20,749 ns   | 0 B
+```
+
+**Sustained Throughput** (messages/second):
+```
+MessageCount | Time       | Throughput
+------------ | ---------- | ----------
+1,000        | 274.1 μs   | ~3.65M msg/s
+10,000       | 2,852 μs   | ~3.51M msg/s
+100,000      | 31,575 μs  | ~3.17M msg/s
+```
+
+**Latency** (publish to receive):
+```
+Operation                 | Latency
+------------------------- | -------
+Publish → Receive         | 873 ns
+Single Publish            | 287 ns
+```
+
+> **Platform**: AMD Ryzen 9 5950X, Windows 11 (10.0.26200.6901), .NET 8.0.21 X64 RyuJIT AVX2
+
+For complete benchmark results, see the [benchmarks](./benchmarks) directory.
+
 ## Getting Started
 
 You can add Berberis CrossBar to your project through NuGet:
