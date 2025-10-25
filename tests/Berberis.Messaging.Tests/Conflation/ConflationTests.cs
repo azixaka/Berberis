@@ -405,7 +405,7 @@ public class ConflationTests
 
         // Assert - No new messages should be received after disposal
         // Note: Due to async nature of conflation flush, one message might be in-flight during disposal
-        receivedCount.Should().BeLessOrEqualTo(countBeforeDispose + 1,
+        receivedCount.Should().BeLessThanOrEqualTo(countBeforeDispose + 1,
             "at most one message might be delivered if flush was in-flight during disposal");
     }
 
