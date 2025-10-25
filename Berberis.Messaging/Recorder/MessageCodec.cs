@@ -4,8 +4,31 @@ using System.IO.Pipelines;
 
 namespace Berberis.Messaging.Recorder;
 
+/// <summary>
+/// Handles encoding and decoding of message headers for the recorder system.
+/// </summary>
+/// <remarks>
+/// Message Format (wire format):
+/// - 4 bytes: Total message length (prefix)
+/// - 2 bytes: Body offset
+/// - 1 byte: Message type
+/// - 1 byte: Message version
+/// - 4 bytes: Options (bytes 0-1: reserved, bytes 2-3: serializer version major/minor)
+/// - 8 bytes: Message ID
+/// - 8 bytes: Timestamp
+/// - Variable: Key (length-prefixed string)
+/// - Variable: From (length-prefixed string)
+/// - Variable: Message body
+/// - 4 bytes: Total message length (suffix, for validation)
+///
+/// The suffix length serves as a message framing validator - if prefix != suffix,
+/// the message data is corrupted.
+/// </remarks>
 internal static class MessageCodec
 {
+    /// <summary>
+    /// Size of the fixed message header in bytes (before variable-length Key/From fields).
+    /// </summary>
     public const int HeaderSize = 28;
 
     public static Span<byte> WriteChannelMessageHeader<TBody>(PipeWriter pipeWriter, SerializerVersion serializerVersion, ref Message<TBody> message)

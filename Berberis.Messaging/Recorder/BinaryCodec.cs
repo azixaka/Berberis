@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.Buffers;
+using System.IO;
 using System.Text;
 
 namespace Berberis.Recorder;
@@ -27,7 +28,7 @@ public static class BinaryCodec
     /// </summary>
     /// <param name="buffer">The buffer to read from.</param>
     /// <returns>The decoded string, or null if length is zero.</returns>
-    /// <exception cref="IndexOutOfRangeException">Thrown when buffer is too small for the string length.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the buffer contains corrupted data (length prefix exceeds available bytes).</exception>
     public static string? ReadString(ReadOnlySpan<byte> buffer)
     {
         var length = BinaryPrimitives.ReadInt32LittleEndian(buffer);
@@ -40,6 +41,6 @@ public static class BinaryCodec
             return Encoding.UTF8.GetString(buffer.Slice(4, length));
         }
 
-        throw new IndexOutOfRangeException($"Buffer length [{buffer.Length - 4}] is less than the string length [{length}]");
+        throw new InvalidDataException($"Corrupted message data: buffer length [{buffer.Length - 4}] is less than the string length prefix [{length}]");
     }
 }

@@ -3,6 +3,11 @@
 /// <summary>
 /// Statistics about recording performance and throughput.
 /// </summary>
+/// <remarks>
+/// All timing measurements include the complete message processing pipeline:
+/// message parsing from the internal buffer AND stream write I/O operations.
+/// This provides accurate end-to-end performance metrics for the recording system.
+/// </remarks>
 public readonly struct RecorderStats
 {
     /// <summary>

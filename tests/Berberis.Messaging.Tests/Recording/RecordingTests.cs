@@ -564,6 +564,59 @@ public class RecordingTests
         stats.TotalMessages.Should().Be(10);
     }
 
+    [Fact]
+    public void RecordingStats_FirstCall_ReturnsValidData()
+    {
+        // VALIDATES: RecorderStatsReporter._lastTicks initialization (Bug #3)
+        // VALIDATES: First GetStats() call returns reasonable IntervalMs (not huge number)
+        // IMPACT: Prevents garbage data on first stats call
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using var recording = xBar.Record("test.channel", stream, serializer);
+
+        // Act - Get stats immediately (first call to GetStats)
+        var firstStats = recording.RecordingStats;
+
+        // Assert - IntervalMs should be reasonable (near zero), not garbage
+        firstStats.IntervalMs.Should().BeGreaterThanOrEqualTo(0, "interval should not be negative");
+        firstStats.IntervalMs.Should().BeLessThan(100, "interval should be very small on first call");
+        firstStats.TotalMessages.Should().Be(0, "no messages recorded yet");
+        firstStats.TotalBytes.Should().Be(0, "no bytes recorded yet");
+    }
+
+    [Fact]
+    public async Task PlayerStats_FirstCall_ReturnsValidData()
+    {
+        // VALIDATES: Player stats reporter initialization
+        // VALIDATES: First GetStats() call on player returns valid data
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage("msg-1"), false);
+            await Task.Delay(50);
+        }
+
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Get stats immediately (first call)
+        var firstStats = player.Stats;
+
+        // Assert
+        firstStats.IntervalMs.Should().BeGreaterThanOrEqualTo(0, "interval should not be negative");
+        firstStats.IntervalMs.Should().BeLessThan(100, "interval should be very small on first call");
+        firstStats.TotalMessages.Should().Be(0, "no messages played yet");
+    }
+
     // Phase 2 Coverage Boost Tests
 
     [Fact]
@@ -908,6 +961,144 @@ public class RecordingTests
         // Assert - Player should handle the exception without crashing
         // Cleanup should happen properly
         player.Dispose();
+    }
+
+    [Fact]
+    public async Task Player_Stats_ReturnsValidStatistics()
+    {
+        // VALIDATES: Player.Stats property (currently 0% covered)
+        // IMPACT: Covers Player stats reporting
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"msg-{i}"), false);
+            }
+            await Task.Delay(100);
+        }
+
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Read some messages and check stats
+        int count = 0;
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            count++;
+            if (count >= 5) break;
+        }
+
+        var stats = player.Stats;
+
+        // Assert
+        stats.TotalMessages.Should().BeGreaterThan(0, "stats should track messages played");
+        stats.TotalBytes.Should().BeGreaterThan(0, "stats should track bytes read");
+    }
+
+    [Fact]
+    public async Task Player_LargeMessages_HandlesCorrectly()
+    {
+        // VALIDATES: Task 11.10 - Very large messages (>1MB)
+        // IMPACT: Ensures large message handling works
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+        var largeBody = new string('X', 1024 * 1024); // 1MB string
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage(largeBody), false);
+            await Task.Delay(200);
+        }
+
+        // Act
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        string? playedBack = null;
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            playedBack = msg.Body;
+            break;
+        }
+
+        // Assert
+        playedBack.Should().NotBeNull();
+        playedBack!.Length.Should().Be(1024 * 1024, "large message should be recorded and played back correctly");
+    }
+
+    [Fact]
+    public async Task Player_TruncatedMessage_StopsPlayback()
+    {
+        // VALIDATES: Task 11.3 - Corrupted message framing (truncated data)
+        // IMPACT: Graceful handling of incomplete recordings
+
+        // Arrange
+        var stream = new MemoryStream();
+
+        // Write a truncated message: length prefix says 1000 bytes but stream ends abruptly
+        var lengthPrefix = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(lengthPrefix, 1000);
+        stream.Write(lengthPrefix, 0, 4);
+        stream.Write(new byte[50], 0, 50); // Only 50 bytes instead of 1000
+        stream.Position = 0;
+
+        var serializer = new TestStringSerializer();
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Player should stop gracefully when it can't read complete message
+        var messages = new List<Message<string>>();
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            messages.Add(msg);
+        }
+
+        // Assert - No messages should be returned (incomplete message is skipped)
+        messages.Should().BeEmpty("truncated message should not be played back");
+    }
+
+    [Fact]
+    public async Task Recording_Disposal_DuringActiveRecording_StopsCleanly()
+    {
+        // VALIDATES: Task 11.8 - Recording disposal during active recording
+        // IMPACT: Resource cleanup validation
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+        var recording = xBar.Record("test.channel", stream, serializer);
+
+        // Start publishing messages
+        var publishTask = Task.Run(async () =>
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"msg-{i}"), false);
+                await Task.Delay(5);
+            }
+        });
+
+        // Wait a bit for some messages to be recorded
+        await Task.Delay(100);
+
+        // Act - Dispose while still recording
+        recording.Dispose();
+
+        // Assert - Should not throw
+        // Stream should have some data
+        stream.Length.Should().BeGreaterThan(0, "some messages should have been recorded before disposal");
+
+        // Wait for publish task to complete (it's okay if it errors due to recording being disposed)
+        try { await publishTask; } catch { }
     }
 
     // Helper: Stream that simulates partial reads (returns data in small chunks)
