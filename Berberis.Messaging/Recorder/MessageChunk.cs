@@ -41,6 +41,8 @@ internal struct MessageChunk
 
     public long TimestampTicks => BinaryPrimitives.ReadInt64LittleEndian(_data.AsSpan().Slice(20));
 
+    public ushort ChannelId => BinaryPrimitives.ReadUInt16LittleEndian(_data.AsSpan().Slice(28));
+
     public string? Key => _cachedKey ??= BinaryCodec.ReadString(_data.AsSpan().Slice(MessageCodec.HeaderSize));
 
     public string? From

@@ -20,9 +20,11 @@ public struct Message<TBody>
     public TBody? Body { get; }
     /// <summary>Custom metadata tag.</summary>
     public long TagA { get; }
+    /// <summary>Channel name where message was published.</summary>
+    public string? ChannelName { get; internal set; }
 
     /// <summary>Creates message with metadata.</summary>
-    public Message(long id, long timestamp, MessageType messageType, long correlationId, string? key, long inceptionTicks, string? from, TBody? body, long tagA)
+    public Message(long id, long timestamp, MessageType messageType, long correlationId, string? key, long inceptionTicks, string? from, TBody? body, long tagA, string? channelName = null)
     {
         Id = id;
         Timestamp = timestamp;
@@ -33,5 +35,6 @@ public struct Message<TBody>
         From = from;
         Body = body;
         TagA = tagA;
+        ChannelName = channelName;
     }
 }

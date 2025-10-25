@@ -16,6 +16,7 @@ namespace Berberis.Messaging.Recorder;
 /// - 4 bytes: Options (bytes 0-1: reserved, bytes 2-3: serializer version major/minor)
 /// - 8 bytes: Message ID
 /// - 8 bytes: Timestamp
+/// - 2 bytes: Channel ID (version 2+)
 /// - Variable: Key (length-prefixed string)
 /// - Variable: From (length-prefixed string)
 /// - Variable: Message body
@@ -28,10 +29,11 @@ internal static class MessageCodec
 {
     /// <summary>
     /// Size of the fixed message header in bytes (before variable-length Key/From fields).
+    /// Version 2: 30 bytes (includes 2-byte channel ID).
     /// </summary>
-    public const int HeaderSize = 28;
+    public const int HeaderSize = 30;
 
-    public static Span<byte> WriteChannelMessageHeader<TBody>(PipeWriter pipeWriter, SerializerVersion serializerVersion, ref Message<TBody> message)
+    public static Span<byte> WriteChannelMessageHeader<TBody>(PipeWriter pipeWriter, SerializerVersion serializerVersion, ref Message<TBody> message, ushort channelId)
     {
         // | 4 bytes | 2 bytes | 1 byte | 1 byte | 4 bytes | 8 bytes | 8 bytes | 4 bytes -> X bytes | 4 bytes -> Y bytes |
        
@@ -51,7 +53,7 @@ internal static class MessageCodec
 
         var writeSpan = bodyOffsetSpan.Slice(2);
         writeSpan[0] = (byte) message.MessageType;
-        writeSpan[1] = 1; // Message Version
+        writeSpan[1] = 2; // Message Version
         writeSpan[2] = 0; // Options 1
         writeSpan[3] = 0; // Options 2
         writeSpan[4] = serializerVersion.Major; // Options 3
@@ -61,6 +63,8 @@ internal static class MessageCodec
         BinaryPrimitives.WriteInt64LittleEndian(writeSpan, message.Id);
         writeSpan = writeSpan.Slice(8);
         BinaryPrimitives.WriteInt64LittleEndian(writeSpan, message.Timestamp);
+        writeSpan = writeSpan.Slice(8);
+        BinaryPrimitives.WriteUInt16LittleEndian(writeSpan, channelId);
         pipeWriter.Advance(HeaderSize);
 
         BinaryCodec.WriteString(message.Key, pipeWriter);

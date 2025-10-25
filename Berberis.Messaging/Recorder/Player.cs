@@ -29,8 +29,9 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     private readonly IProgress<RecordingProgress>? _progress;
     private readonly long _streamLength;
     private long _messagesProcessed;
+    private readonly Dictionary<ushort, string>? _channelMap;
 
-    private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress = null)
+    private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress = null, Dictionary<ushort, string>? channelMap = null)
     {
         _stream = stream;
         _serialiser = serialiser;
@@ -38,6 +39,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
         _progress = progress;
         _streamLength = stream.CanSeek ? stream.Length : 0;
         _messagesProcessed = 0;
+        _channelMap = channelMap;
     }
 
     /// <summary>Gets playback statistics.</summary>
@@ -48,9 +50,10 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     /// </summary>
     /// <param name="stream">The stream containing recorded messages.</param>
     /// <param name="serialiser">The message body serializer.</param>
+    /// <param name="channelMap">Optional channel ID to name mapping (for multi-channel recordings).</param>
     /// <returns>A player instance.</returns>
-    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser) =>
-           Create(stream, serialiser, PlayMode.AsFastAsPossible);
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, Dictionary<ushort, string>? channelMap = null) =>
+           Create(stream, serialiser, PlayMode.AsFastAsPossible, channelMap: channelMap);
 
     /// <summary>
     /// Creates a player for recorded messages with specified play mode.
@@ -58,9 +61,10 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     /// <param name="stream">The stream containing recorded messages.</param>
     /// <param name="serialiser">The message body serializer.</param>
     /// <param name="playMode">The playback mode.</param>
+    /// <param name="channelMap">Optional channel ID to name mapping (for multi-channel recordings).</param>
     /// <returns>A player instance.</returns>
-    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode) =>
-           new Player<TBody>(stream, serialiser, playMode, progress: null);
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, Dictionary<ushort, string>? channelMap = null) =>
+           new Player<TBody>(stream, serialiser, playMode, progress: null, channelMap: channelMap);
 
     /// <summary>
     /// Creates a player for recorded messages with progress reporting.
@@ -69,9 +73,10 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     /// <param name="serialiser">The message body serializer.</param>
     /// <param name="playMode">The playback mode.</param>
     /// <param name="progress">Progress reporter (optional).</param>
+    /// <param name="channelMap">Optional channel ID to name mapping (for multi-channel recordings).</param>
     /// <returns>A player instance.</returns>
-    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress) =>
-           new Player<TBody>(stream, serialiser, playMode, progress);
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress, Dictionary<ushort, string>? channelMap = null) =>
+           new Player<TBody>(stream, serialiser, playMode, progress, channelMap);
 
     /// <summary>
     /// Gets messages from the recording asynchronously.
@@ -94,7 +99,14 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                 {
                     var obj = _serialiser.Deserialize(chunk.Body);
 
-                    var message = new Message<TBody>(chunk.Id, chunk.TimestampTicks, chunk.Type, 0, chunk.Key, 0, chunk.From, obj, 0);
+                    // Look up channel name from channel map if available
+                    string? channelName = null;
+                    if (_channelMap != null && _channelMap.TryGetValue(chunk.ChannelId, out var name))
+                    {
+                        channelName = name;
+                    }
+
+                    var message = new Message<TBody>(chunk.Id, chunk.TimestampTicks, chunk.Type, 0, chunk.Key, 0, chunk.From, obj, 0, channelName);
 
                     _recorderStatsReporter.Stop(ticks, chunk.Length);
 

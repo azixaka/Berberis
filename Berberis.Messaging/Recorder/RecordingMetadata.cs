@@ -26,6 +26,13 @@ public sealed class RecordingMetadata
     public string? Channel { get; set; }
 
     /// <summary>
+    /// Maps channel IDs to channel names for multi-channel recordings.
+    /// Used when recording wildcard channels (e.g., "orders.*").
+    /// </summary>
+    [JsonPropertyName("channelMap")]
+    public Dictionary<ushort, string>? ChannelMap { get; set; }
+
+    /// <summary>
     /// The serializer type used for message bodies.
     /// </summary>
     [JsonPropertyName("serializerType")]

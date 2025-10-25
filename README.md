@@ -403,6 +403,43 @@ using var subscription = xBar.Subscribe<StockPrice>(
 await subscription.MessageLoop;
 ```
 
+#### ChannelName in Wildcard Subscriptions
+
+When subscribing to wildcard patterns, each message includes the actual channel name it was published to:
+
+```csharp
+// Subscribe to all order channels
+using var subscription = xBar.Subscribe<Order>("orders.*", async msg =>
+{
+    // msg.ChannelName contains the actual channel: "orders.new", "orders.pending", etc.
+    switch (msg.ChannelName)
+    {
+        case "orders.new":
+            await HandleNewOrder(msg.Body);
+            break;
+        case "orders.pending":
+            await HandlePendingOrder(msg.Body);
+            break;
+        case "orders.approved":
+            await HandleApprovedOrder(msg.Body);
+            break;
+    }
+
+    _logger.LogInformation("Processed {channel}: {orderId}", msg.ChannelName, msg.Body.Id);
+});
+
+// Publish to different channels matching the pattern
+await xBar.Publish("orders.new", new Order { Id = 1 });
+await xBar.Publish("orders.pending", new Order { Id = 2 });
+await xBar.Publish("orders.approved", new Order { Id = 3 });
+```
+
+**Benefits:**
+- Route messages based on actual channel name within a single subscription
+- Log the specific channel for debugging and auditing
+- Apply channel-specific logic without separate subscriptions
+- Essential for wildcard recordings (see below)
+
 ### Record and Replay
 
 Capture message streams to binary files for debugging, testing, or auditing. See [docs/Recorder.md](docs/Recorder.md) for detailed documentation.
@@ -477,6 +514,55 @@ public class PlayerService : BackgroundService
         {
             // Republish to the same or different channel
             await _xBar.Publish("replay.stock.prices", message.Body, key: message.Key);
+        }
+    }
+}
+
+// Wildcard Channel Recording: Record multiple channels with channel name preservation
+public class WildcardRecordingService : BackgroundService
+{
+    private readonly ICrossBar _xBar;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Record all order channels: orders.new, orders.pending, orders.approved, etc.
+        using var fileStream = File.OpenWrite("orders.bin");
+        using var recording = _xBar.Record(
+            channelOrPattern: "orders.*",
+            stream: fileStream,
+            serialiser: new OrderSerializer(),
+            cancellationToken: stoppingToken
+        );
+
+        await Task.Delay(60_000, stoppingToken);
+    }
+}
+
+// Playback with Channel Name: Replay to original channels
+public class WildcardPlaybackService : BackgroundService
+{
+    private readonly ICrossBar _xBar;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Load metadata to get channel map
+        var metadataPath = RecordingMetadata.GetMetadataPath("orders.bin");
+        var metadata = await RecordingMetadata.ReadAsync(metadataPath, stoppingToken);
+
+        using var fileStream = File.OpenRead("orders.bin");
+        var player = Player<Order>.Create(
+            fileStream,
+            new OrderSerializer(),
+            channelMap: metadata?.ChannelMap  // Pass channel map for name resolution
+        );
+
+        await foreach (var message in player.MessagesAsync(stoppingToken))
+        {
+            // message.ChannelName contains the original channel: "orders.new", "orders.pending", etc.
+            // Republish to original channel or route based on channel name
+            await _xBar.Publish(message.ChannelName ?? "orders.unknown", message.Body);
+
+            _logger.LogInformation("Replayed {channel}: {orderId}", message.ChannelName, message.Body.Id);
         }
     }
 }

@@ -107,6 +107,8 @@ public sealed partial class CrossBar : ICrossBar, IDisposable
                 message.Id = channel.NextMessageId();
             }
 
+            message.ChannelName = channelName;
+
             if (MessageTracingEnabled)
             {
                 PublishSystem(TracingChannel,

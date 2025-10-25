@@ -29,6 +29,10 @@ public sealed class Recording<TBody> : IRecording
     private StreamingIndexWriter? _indexWriter;
     private long _messageNumber;
     private long _totalMessages;
+    private readonly Dictionary<string, ushort> _channelNameToId = new();
+    private ushort _nextChannelId;
+    private readonly object _channelMapLock = new();
+    private RecordingMetadata _metadata = null!;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -74,6 +78,7 @@ public sealed class Recording<TBody> : IRecording
 
         var recording = new Recording<TBody>();
         recording.Start(stream, serialiser, token);
+        recording._metadata = metadata;
         var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
         recording._subscription = subscription;
         var cts = token == default ? recording._cts : CancellationTokenSource.CreateLinkedTokenSource(recording._cts.Token, token);
@@ -100,7 +105,21 @@ public sealed class Recording<TBody> : IRecording
     {
         var pipeWriter = _pipe.Writer;
 
-        var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(pipeWriter, _serialiser.Version, ref message);
+        // Get or assign channel ID
+        var channelName = message.ChannelName ?? string.Empty;
+        if (!_channelNameToId.TryGetValue(channelName, out var channelId))
+        {
+            lock (_channelMapLock)
+            {
+                if (!_channelNameToId.TryGetValue(channelName, out channelId))
+                {
+                    channelId = _nextChannelId++;
+                    _channelNameToId[channelName] = channelId;
+                }
+            }
+        }
+
+        var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(pipeWriter, _serialiser.Version, ref message, channelId);
 
         if (message.MessageType == MessageType.ChannelUpdate)
         {
@@ -258,6 +277,23 @@ public sealed class Recording<TBody> : IRecording
         {
             _indexWriter.Finalize(_totalMessages);
             _indexWriter.Dispose();
+        }
+
+        // Update and save metadata with channel map
+        if (_channelNameToId.Count > 0)
+        {
+            _metadata.ChannelMap = new Dictionary<ushort, string>();
+            foreach (var kvp in _channelNameToId)
+            {
+                _metadata.ChannelMap[kvp.Value] = kvp.Key;
+            }
+
+            if (_stream is FileStream fileStream)
+            {
+                var recordingPath = fileStream.Name;
+                var metadataPath = RecordingMetadata.GetMetadataPath(recordingPath);
+                RecordingMetadata.WriteAsync(_metadata, metadataPath).GetAwaiter().GetResult();
+            }
         }
     }
 }

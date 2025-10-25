@@ -24,7 +24,9 @@ public static class RecordingUtilities
         Message<TBody> message)
     {
         var mutableMsg = message;
-        var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(writer, serializer.Version, ref mutableMsg);
+        // For utility operations (merge/split/filter/convert), use channelId = 0
+        // The actual channel name is preserved in message.ChannelName
+        var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(writer, serializer.Version, ref mutableMsg, channelId: 0);
 
         if (mutableMsg.MessageType == MessageType.ChannelUpdate)
         {

@@ -1135,4 +1135,185 @@ public class RecorderIntegrationTests : IDisposable
     }
 
     #endregion
+
+    #region Wildcard Channel and ChannelName Tests
+
+    [Fact]
+    public async Task EndToEnd_WildcardChannelRecording_MultipleChannels_ChannelNamesPreserved()
+    {
+        // VALIDATES: Wildcard channel subscription recording
+        // VALIDATES: ChannelName is set on messages and preserved through recording/playback
+        // VALIDATES: ChannelMap in metadata correctly maps channel IDs to names
+
+        // Arrange
+        var recordingFile = CreateTempFile();
+        var metadataFile = RecordingMetadata.GetMetadataPath(recordingFile);
+        _tempFiles.Add(metadataFile);
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var serializer = new TestStringSerializer();
+
+        // Act - Record wildcard channel
+        await using (var fileStream = File.Create(recordingFile))
+        {
+            using var recording = xBar.Record("orders.*", fileStream, serializer);
+
+            // Publish to multiple channels matching the wildcard pattern
+            await xBar.Publish("orders.new", TestHelpers.CreateTestMessage("order-1-new"), store: false);
+            await xBar.Publish("orders.pending", TestHelpers.CreateTestMessage("order-1-pending"), store: false);
+            await xBar.Publish("orders.approved", TestHelpers.CreateTestMessage("order-1-approved"), store: false);
+            await xBar.Publish("orders.new", TestHelpers.CreateTestMessage("order-2-new"), store: false);
+            await xBar.Publish("orders.pending", TestHelpers.CreateTestMessage("order-2-pending"), store: false);
+            await xBar.Publish("orders.approved", TestHelpers.CreateTestMessage("order-2-approved"), store: false);
+
+            await Task.Delay(200);
+        }
+
+        await Task.Delay(100); // Wait for metadata write
+
+        // Assert 1 - Verify metadata distinguishes pattern from actual channels
+        var metadata = await RecordingMetadata.ReadAsync(metadataFile);
+        metadata.Should().NotBeNull();
+
+        // Channel = the subscription pattern
+        metadata!.Channel.Should().Be("orders.*");
+
+        // ChannelMap = actual channels recorded
+        metadata.ChannelMap.Should().NotBeNull();
+        metadata.ChannelMap.Should().HaveCount(3);
+        metadata.ChannelMap!.Values.Should().Contain("orders.new");
+        metadata.ChannelMap.Values.Should().Contain("orders.pending");
+        metadata.ChannelMap.Values.Should().Contain("orders.approved");
+
+        // Assert 2 - Verify playback with channel names
+        var playedMessages = new List<(string body, string? channelName)>();
+        await using (var fileStream = File.OpenRead(recordingFile))
+        {
+            var player = Player<string>.Create(fileStream, serializer, metadata.ChannelMap);
+
+            await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+            {
+                playedMessages.Add((msg.Body!, msg.ChannelName));
+            }
+        }
+
+        // Assert 3 - All messages should have correct channel names
+        playedMessages.Should().HaveCount(6);
+
+        playedMessages[0].body.Should().Be("order-1-new");
+        playedMessages[0].channelName.Should().Be("orders.new");
+
+        playedMessages[1].body.Should().Be("order-1-pending");
+        playedMessages[1].channelName.Should().Be("orders.pending");
+
+        playedMessages[2].body.Should().Be("order-1-approved");
+        playedMessages[2].channelName.Should().Be("orders.approved");
+
+        playedMessages[3].body.Should().Be("order-2-new");
+        playedMessages[3].channelName.Should().Be("orders.new");
+
+        playedMessages[4].body.Should().Be("order-2-pending");
+        playedMessages[4].channelName.Should().Be("orders.pending");
+
+        playedMessages[5].body.Should().Be("order-2-approved");
+        playedMessages[5].channelName.Should().Be("orders.approved");
+    }
+
+    [Fact]
+    public async Task EndToEnd_ChannelName_SetByPublish_AvailableInSubscription()
+    {
+        // VALIDATES: CrossBar.Publish sets ChannelName on messages
+        // VALIDATES: Subscribers receive messages with ChannelName set
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var receivedMessages = new List<(string body, string? channelName)>();
+
+        var subscription = xBar.Subscribe<string>("test.*", async msg =>
+        {
+            receivedMessages.Add((msg.Body!, msg.ChannelName));
+            await Task.CompletedTask;
+        }, default);
+
+        // Act - Publish to different channels
+        await xBar.Publish("test.alpha", TestHelpers.CreateTestMessage("alpha-message"), store: false);
+        await xBar.Publish("test.beta", TestHelpers.CreateTestMessage("beta-message"), store: false);
+        await xBar.Publish("test.gamma", TestHelpers.CreateTestMessage("gamma-message"), store: false);
+
+        await Task.Delay(100); // Allow messages to be processed
+
+        // Assert
+        receivedMessages.Should().HaveCount(3);
+
+        receivedMessages[0].body.Should().Be("alpha-message");
+        receivedMessages[0].channelName.Should().Be("test.alpha");
+
+        receivedMessages[1].body.Should().Be("beta-message");
+        receivedMessages[1].channelName.Should().Be("test.beta");
+
+        receivedMessages[2].body.Should().Be("gamma-message");
+        receivedMessages[2].channelName.Should().Be("test.gamma");
+
+        subscription.TryDispose();
+    }
+
+    [Fact]
+    public async Task EndToEnd_SingleChannelRecording_ChannelNameInMetadata()
+    {
+        // VALIDATES: Single-channel recordings also work with channel name feature
+        // VALIDATES: ChannelMap has single entry for single-channel recordings
+
+        // Arrange
+        var recordingFile = CreateTempFile();
+        var metadataFile = RecordingMetadata.GetMetadataPath(recordingFile);
+        _tempFiles.Add(metadataFile);
+
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var serializer = new TestStringSerializer();
+
+        // Act - Record single channel
+        await using (var fileStream = File.Create(recordingFile))
+        {
+            using var recording = xBar.Record("single.channel", fileStream, serializer);
+
+            for (int i = 0; i < 10; i++)
+            {
+                await xBar.Publish("single.channel", TestHelpers.CreateTestMessage($"msg-{i}"), store: false);
+            }
+
+            await Task.Delay(200);
+        }
+
+        await Task.Delay(100);
+
+        // Assert - Metadata should show Channel equals ChannelMap[0] for single-channel recordings
+        var metadata = await RecordingMetadata.ReadAsync(metadataFile);
+        metadata.Should().NotBeNull();
+
+        // Channel = the specific channel subscribed to
+        metadata!.Channel.Should().Be("single.channel");
+
+        // ChannelMap = single entry mapping (redundant but present)
+        metadata.ChannelMap.Should().NotBeNull();
+        metadata.ChannelMap.Should().HaveCount(1);
+        metadata.ChannelMap!.Values.Should().Contain("single.channel");
+        metadata.ChannelMap.Values.First().Should().Be(metadata.Channel);
+
+        // Verify playback
+        var playedMessages = new List<(string body, string? channelName)>();
+        await using (var fileStream = File.OpenRead(recordingFile))
+        {
+            var player = Player<string>.Create(fileStream, serializer, metadata.ChannelMap);
+
+            await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+            {
+                playedMessages.Add((msg.Body!, msg.ChannelName));
+            }
+        }
+
+        playedMessages.Should().HaveCount(10);
+        playedMessages.Should().AllSatisfy(m => m.channelName.Should().Be("single.channel"));
+    }
+
+    #endregion
 }
