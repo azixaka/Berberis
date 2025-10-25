@@ -26,12 +26,18 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     private PlayMode _playMode;
     private readonly RecorderStatsReporter _recorderStatsReporter = new();
     private long? _previousTimestamp;
+    private readonly IProgress<RecordingProgress>? _progress;
+    private readonly long _streamLength;
+    private long _messagesProcessed;
 
-    private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode)
+    private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress = null)
     {
         _stream = stream;
         _serialiser = serialiser;
         _playMode = playMode;
+        _progress = progress;
+        _streamLength = stream.CanSeek ? stream.Length : 0;
+        _messagesProcessed = 0;
     }
 
     /// <summary>Gets playback statistics.</summary>
@@ -54,7 +60,18 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     /// <param name="playMode">The playback mode.</param>
     /// <returns>A player instance.</returns>
     public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode) =>
-           new Player<TBody>(stream, serialiser, playMode);
+           new Player<TBody>(stream, serialiser, playMode, progress: null);
+
+    /// <summary>
+    /// Creates a player for recorded messages with progress reporting.
+    /// </summary>
+    /// <param name="stream">The stream containing recorded messages.</param>
+    /// <param name="serialiser">The message body serializer.</param>
+    /// <param name="playMode">The playback mode.</param>
+    /// <param name="progress">Progress reporter (optional).</param>
+    /// <returns>A player instance.</returns>
+    public static IPlayer<TBody> Create(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode, IProgress<RecordingProgress>? progress) =>
+           new Player<TBody>(stream, serialiser, playMode, progress);
 
     /// <summary>
     /// Gets messages from the recording asynchronously.
@@ -93,6 +110,21 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                     }
 
                     _previousTimestamp = chunk.Timestamp;
+                    _messagesProcessed++;
+
+                    // Report progress every 1000 messages
+                    if (_progress != null && _messagesProcessed % 1000 == 0)
+                    {
+                        var bytesProcessed = _stream.CanSeek ? _stream.Position : 0;
+                        var percentComplete = _streamLength > 0 ? (double)bytesProcessed / _streamLength * 100.0 : 0;
+
+                        _progress.Report(new RecordingProgress(
+                            BytesProcessed: bytesProcessed,
+                            TotalBytes: _streamLength,
+                            MessagesProcessed: _messagesProcessed,
+                            PercentComplete: percentComplete
+                        ));
+                    }
 
                     yield return message;
                 }

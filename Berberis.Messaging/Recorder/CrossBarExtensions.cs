@@ -18,7 +18,7 @@ public static class CrossBarExtensions
     /// <param name="token">Cancellation token.</param>
     /// <returns>A recording instance that can be disposed to stop recording.</returns>
     public static IRecording Record<TBody>(this ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser, CancellationToken token = default)
-        => Record(crossBar, channel, stream, serialiser, false, TimeSpan.Zero, token);
+        => Record(crossBar, channel, stream, serialiser, false, TimeSpan.Zero, null, token);
 
     /// <summary>
     /// Records messages from a channel to a stream with options.
@@ -30,8 +30,9 @@ public static class CrossBarExtensions
     /// <param name="serialiser">The serializer for message bodies.</param>
     /// <param name="saveInitialState">If true, records initial channel state.</param>
     /// <param name="conflationInterval">Conflation interval for message batching.</param>
+    /// <param name="metadata">Optional metadata to write to a .meta.json file. If the stream is a FileStream, metadata will be written to a .meta.json file alongside the recording file.</param>
     /// <param name="token">Cancellation token.</param>
     /// <returns>A recording instance that can be disposed to stop recording.</returns>
-    public static IRecording Record<TBody>(this ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser, bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
-        => Recording<TBody>.CreateRecording(crossBar, channel, stream, serialiser, saveInitialState, conflationInterval, token);
+    public static IRecording Record<TBody>(this ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser, bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata? metadata = null, CancellationToken token = default)
+        => Recording<TBody>.CreateRecording(crossBar, channel, stream, serialiser, saveInitialState, conflationInterval, metadata, token);
 }

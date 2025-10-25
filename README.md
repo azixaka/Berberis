@@ -12,7 +12,7 @@ Berberis CrossBar is a high-performance, allocation-free in-process message brok
 
 - **Message Conflation**: Berberis CrossBar supports message conflation, enhancing the efficiency of your messaging system by preventing the overloading of channels with redundant or unnecessary data.
 
-- **Record/Replay**: The broker provides a record/replay feature that can serialize a stream of updates into a stream. This serialized stream can then be deserialized and published on a channel, facilitating efficient data replay and debugging.
+- **Record/Replay**: Capture message streams to binary files with zero-allocation recording and efficient playback. Features include metadata files for self-describing recordings, fast indexing for seeking in large files, progress reporting, and utilities for merging, splitting, and filtering recordings. Streaming index creation enables instant seeking without post-processing.
 
 - **Comprehensive Observability**: With Berberis CrossBar, you can trace not only messages but also a wide array of statistics, including service time, latencies, rates, sources, percentiles, and more. Lifecycle tracking enables real-time topology visualization by publishing events when channels and subscriptions are created or destroyed. This empowers you to gain deeper insights into the performance of your messaging system and make data-driven optimizations.
 
@@ -480,6 +480,156 @@ public class PlayerService : BackgroundService
         }
     }
 }
+
+// Recording with Metadata: Add self-describing metadata to recordings
+public class RecorderWithMetadataService : BackgroundService
+{
+    private readonly ICrossBar _xBar;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var metadata = new RecordingMetadata
+        {
+            CreatedUtc = DateTime.UtcNow,
+            Channel = "stock.prices.>",
+            SerializerType = "StockPriceSerializer",
+            SerializerVersion = 1,
+            MessageType = "StockPrice",
+            Custom = new Dictionary<string, string>
+            {
+                ["application"] = "StockRecorder",
+                ["version"] = "1.0.0"
+            }
+        };
+
+        using var fileStream = File.OpenWrite("stock-prices.bin");
+        using var recording = _xBar.Record(
+            channelOrPattern: "stock.prices.>",
+            stream: fileStream,
+            serialiser: new StockPriceSerializer(),
+            saveInitialState: false,
+            conflationInterval: TimeSpan.Zero,
+            metadata: metadata,
+            cancellationToken: stoppingToken
+        );
+
+        await Task.Delay(10_000, stoppingToken);
+        recording.Dispose();
+        await recording.MessageLoop;
+
+        // Metadata is automatically written to "stock-prices.bin.meta.json"
+    }
+}
+
+// Reading Metadata: Inspect recording properties without deserializing
+var meta = await RecordingMetadata.ReadAsync("stock-prices.bin.meta.json");
+if (meta != null)
+{
+    Console.WriteLine($"Channel: {meta.Channel}");
+    Console.WriteLine($"Serializer: {meta.SerializerType} v{meta.SerializerVersion}");
+    Console.WriteLine($"Message Count: {meta.MessageCount}");
+}
+
+// Index & Seek: Fast navigation in large recordings
+await RecordingIndex.BuildAsync(
+    recordingPath: "stock-prices.bin",
+    indexPath: "stock-prices.bin.idx",
+    serializer: new StockPriceSerializer(),
+    interval: 1000  // Index every 1000 messages
+);
+
+await using var stream = File.OpenRead("stock-prices.bin");
+var indexedPlayer = await IndexedPlayer<StockPrice>.CreateAsync(
+    stream,
+    indexPath: "stock-prices.bin.idx",
+    serializer: new StockPriceSerializer()
+);
+
+Console.WriteLine($"Total messages: {indexedPlayer.TotalMessages}");
+
+// Seek to message 500,000
+await indexedPlayer.SeekToMessageAsync(500_000);
+
+// Or seek to 10 minutes ago
+var tenMinutesAgo = DateTime.UtcNow.AddMinutes(-10).Ticks;
+await indexedPlayer.SeekToTimestampAsync(tenMinutesAgo);
+
+// Progress Reporting: Track playback progress
+var progress = new Progress<RecordingProgress>(p =>
+{
+    Console.WriteLine($"Progress: {p.PercentComplete:F1}% " +
+                      $"({p.MessagesProcessed:N0} messages processed)");
+});
+
+await using var progressStream = File.OpenRead("stock-prices.bin");
+var progressPlayer = Player<StockPrice>.Create(
+    progressStream,
+    new StockPriceSerializer(),
+    PlayMode.AsFastAsPossible,
+    progress
+);
+
+await foreach (var msg in progressPlayer.MessagesAsync(CancellationToken.None))
+{
+    ProcessMessage(msg);
+}
+
+// Streaming Index: Build index during recording (no post-processing!)
+var metadata = new RecordingMetadata
+{
+    CreatedUtc = DateTime.UtcNow,
+    Channel = "stock.prices",
+    IndexFile = "stock-prices.bin.idx",  // Index built automatically during recording
+    SerializerType = "StockPriceSerializer",
+    SerializerVersion = 1,
+    MessageType = "StockPrice"
+};
+
+using var fileStream = File.OpenWrite("stock-prices.bin");
+using var recording = _xBar.Record(
+    "stock.prices",
+    fileStream,
+    new StockPriceSerializer(),
+    metadata: metadata  // Index will be built as messages are recorded!
+);
+
+// Messages are being recorded AND indexed simultaneously
+// No need to call RecordingIndex.BuildAsync() later!
+
+// Recording Utilities: Merge, split, filter, and convert recordings
+using Berberis.Recorder;
+
+// Merge multiple recordings into one (by timestamp)
+var mergedMeta = await RecordingUtilities.MergeAsync<StockPrice>(
+    inputPaths: new[] { "rec1.bin", "rec2.bin", "rec3.bin" },
+    outputPath: "merged.bin",
+    serializer: new StockPriceSerializer(),
+    duplicateHandling: DuplicateHandling.KeepLast  // KeepFirst, KeepLast, or KeepAll
+);
+
+// Split large recording into smaller chunks
+var splitMetas = await RecordingUtilities.SplitAsync<StockPrice>(
+    inputPath: "large-recording.bin",
+    outputPathPattern: "chunk-{0:D4}.bin",  // chunk-0001.bin, chunk-0002.bin, etc.
+    serializer: new StockPriceSerializer(),
+    splitBy: SplitCriteria.MessageCount(1_000_000)  // Or TimeDuration, FileSize
+);
+
+// Filter recording by predicate
+var filteredMeta = await RecordingUtilities.FilterAsync<StockPrice>(
+    inputPath: "all-stocks.bin",
+    outputPath: "aapl-only.bin",
+    serializer: new StockPriceSerializer(),
+    predicate: msg => msg.Body?.Symbol == "AAPL"
+);
+
+// Convert between serializer versions
+var convertedMeta = await RecordingUtilities.ConvertAsync<StockPrice>(
+    inputPath: "old-format.bin",
+    outputPath: "new-format.bin",
+    oldSerializer: new StockPriceSerializerV1(),
+    newSerializer: new StockPriceSerializerV2()
+);
 ```
 
 ### Observability and Metrics

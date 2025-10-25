@@ -26,6 +26,9 @@ public sealed class Recording<TBody> : IRecording
     private IMessageBodySerializer<TBody> _serialiser = null!;
     private Pipe _pipe = null!;
     private readonly RecorderStatsReporter _recorderStatsReporter = new();
+    private StreamingIndexWriter? _indexWriter;
+    private long _messageNumber;
+    private long _totalMessages;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -58,7 +61,7 @@ public sealed class Recording<TBody> : IRecording
     public RecorderStats RecordingStats => _recorderStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
-                                               bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
+                                               bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata? metadata, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
         recording.Start(stream, serialiser, token);
@@ -66,6 +69,24 @@ public sealed class Recording<TBody> : IRecording
         recording._subscription = subscription;
         var cts = token == default ? recording._cts : CancellationTokenSource.CreateLinkedTokenSource(recording._cts.Token, token);
         recording.MessageLoop = MonitorTasksAsync(subscription.MessageLoop, recording.PipeReaderLoop(cts.Token), cts);
+
+        // Write metadata file if provided and stream is a FileStream
+        if (metadata != null && stream is FileStream fileStream)
+        {
+            var recordingPath = fileStream.Name;
+            var metadataPath = RecordingMetadata.GetMetadataPath(recordingPath);
+            _ = RecordingMetadata.WriteAsync(metadata, metadataPath, token);
+
+            // Initialize streaming index writer if metadata specifies an index file and stream is seekable
+            if (!string.IsNullOrEmpty(metadata.IndexFile) && stream.CanSeek)
+            {
+                var indexPath = Path.IsPathRooted(metadata.IndexFile)
+                    ? metadata.IndexFile
+                    : Path.Combine(Path.GetDirectoryName(recordingPath) ?? ".", metadata.IndexFile);
+                recording._indexWriter = new StreamingIndexWriter(indexPath);
+            }
+        }
+
         return recording;
     }
 
@@ -112,12 +133,27 @@ public sealed class Recording<TBody> : IRecording
                     var success = TryReadMessage(ref buffer, out ReadOnlySequence<byte> message);
                     if (success)
                     {
+                        // Track file offset before writing (for index)
+                        long fileOffset = _stream.CanSeek ? _stream.Position : 0;
+
                         foreach (var memory in message)
                         {
                             await _stream.WriteAsync(memory);
                         }
 
                         _recorderStatsReporter.Stop(ticks, message.Length);
+
+                        // Write index entry if streaming index is enabled
+                        if (_indexWriter != null && _stream.CanSeek)
+                        {
+                            // Extract timestamp from message (it's in the header)
+                            // Message format: [length:4][options:2][version:2][timestamp:8]...
+                            long timestamp = ExtractTimestamp(message);
+                            _indexWriter.TryWriteEntry(_messageNumber, fileOffset, timestamp);
+                        }
+
+                        _messageNumber++;
+                        _totalMessages++;
                     }
                     else break;
                 }
@@ -141,12 +177,26 @@ public sealed class Recording<TBody> : IRecording
                     var success = TryReadMessage(ref finalBuffer, out ReadOnlySequence<byte> message);
                     if (success)
                     {
+                        // Track file offset before writing (for index)
+                        long fileOffset = _stream.CanSeek ? _stream.Position : 0;
+
                         foreach (var memory in message)
                         {
                             await _stream.WriteAsync(memory);
                         }
 
                         _recorderStatsReporter.Stop(ticks, message.Length);
+
+                        // Write index entry if streaming index is enabled
+                        if (_indexWriter != null && _stream.CanSeek)
+                        {
+                            // Extract timestamp from message (it's in the header)
+                            long timestamp = ExtractTimestamp(message);
+                            _indexWriter.TryWriteEntry(_messageNumber, fileOffset, timestamp);
+                        }
+
+                        _messageNumber++;
+                        _totalMessages++;
                     }
                     else break;
                 }
@@ -154,6 +204,18 @@ public sealed class Recording<TBody> : IRecording
                 pipeReader.AdvanceTo(finalBuffer.Start, finalBuffer.End);
                 break;
             }
+        }
+
+        static long ExtractTimestamp(ReadOnlySequence<byte> message)
+        {
+            // Message format: [length:4][options:2][version:2][timestamp:8]...
+            if (message.Length < 16)
+                return 0;
+
+            // Always copy to avoid ref struct issues in async methods
+            var headerBuffer = new byte[16];
+            message.Slice(0, 16).CopyTo(headerBuffer);
+            return BinaryPrimitives.ReadInt64LittleEndian(headerBuffer.AsSpan(8, 8));
         }
 
         bool TryReadMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message)
@@ -184,5 +246,12 @@ public sealed class Recording<TBody> : IRecording
         _pipe.Writer.Complete();
         _cts.Cancel();
         _pipe.Reader.Complete();
+
+        // Finalize streaming index if enabled
+        if (_indexWriter != null)
+        {
+            _indexWriter.Finalize(_totalMessages);
+            _indexWriter.Dispose();
+        }
     }
 }
