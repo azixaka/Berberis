@@ -523,17 +523,22 @@ if (meta != null)
 }
 
 // Index & Seek: Fast navigation in large recordings
-await RecordingIndex.BuildAsync(
-    recordingPath: "stock-prices.bin",
-    indexPath: "stock-prices.bin.idx",
-    serializer: new StockPriceSerializer(),
-    interval: 1000  // Index every 1000 messages
-);
+await using (var recordingStream = File.OpenRead("stock-prices.bin"))
+await using (var indexStream = File.Create("stock-prices.bin.idx"))
+{
+    await RecordingIndex.BuildAsync(
+        recordingStream,
+        indexStream,
+        serializer: new StockPriceSerializer(),
+        interval: 1000  // Index every 1000 messages
+    );
+}
 
 await using var stream = File.OpenRead("stock-prices.bin");
+await using var idxStream = File.OpenRead("stock-prices.bin.idx");
 var indexedPlayer = await IndexedPlayer<StockPrice>.CreateAsync(
     stream,
-    indexPath: "stock-prices.bin.idx",
+    idxStream,
     serializer: new StockPriceSerializer()
 );
 
@@ -568,15 +573,15 @@ await foreach (var msg in progressPlayer.MessagesAsync(CancellationToken.None))
 
 // Streaming Index: Build index during recording (no post-processing!)
 using var fileStream = File.OpenWrite("stock-prices.bin");
+using var indexStream = File.Create("stock-prices.bin.idx");
 using var recording = _xBar.Record(
     "stock.prices",
     fileStream,
     new StockPriceSerializer(),
-    configureMetadata: meta =>
-    {
-        // Set IndexFile to enable streaming index creation
-        meta.IndexFile = RecordingIndex.GetIndexPath(fileStream.Name);  // "stock-prices.bin.idx"
-    }
+    saveInitialState: false,
+    conflationInterval: TimeSpan.Zero,
+    configureMetadata: null,
+    indexStream: indexStream  // Provide index stream to enable streaming index
 );
 
 // Messages are being recorded AND indexed simultaneously!

@@ -25,15 +25,22 @@ internal sealed class StreamingIndexWriter : IDisposable
     /// <summary>
     /// Creates a new streaming index writer.
     /// </summary>
-    /// <param name="indexPath">Path to the index file to create.</param>
+    /// <param name="indexStream">The stream to write the index to (must be writable and seekable).</param>
     /// <param name="interval">Index every Nth message (default: 1000).</param>
-    public StreamingIndexWriter(string indexPath, int interval = RecordingIndex.DefaultInterval)
+    /// <exception cref="ArgumentException">Thrown if indexStream is not writable or seekable.</exception>
+    public StreamingIndexWriter(Stream indexStream, int interval = RecordingIndex.DefaultInterval)
     {
+        if (!indexStream.CanWrite)
+            throw new ArgumentException("Index stream must be writable", nameof(indexStream));
+
+        if (!indexStream.CanSeek)
+            throw new ArgumentException("Index stream must be seekable", nameof(indexStream));
+
         if (interval <= 0)
             throw new ArgumentOutOfRangeException(nameof(interval), "Interval must be positive");
 
         _interval = interval;
-        _indexStream = File.Create(indexPath);
+        _indexStream = indexStream;
         _entryCount = 0;
 
         // Write placeholder header (we don't know total messages yet)
@@ -156,7 +163,8 @@ internal sealed class StreamingIndexWriter : IDisposable
         if (_isDisposed)
             return;
 
-        _indexStream?.Dispose();
+        // Note: We do NOT dispose the stream - caller owns it
+        // This matches .NET conventions (e.g., StreamReader/StreamWriter with leaveOpen parameter)
         _isDisposed = true;
     }
 }

@@ -68,12 +68,6 @@ public sealed class RecordingMetadata
     public long? DurationMs { get; set; }
 
     /// <summary>
-    /// Path to the index file, if this recording has been indexed (relative to recording file).
-    /// </summary>
-    [JsonPropertyName("indexFile")]
-    public string? IndexFile { get; set; }
-
-    /// <summary>
     /// Custom application-specific metadata (extensible).
     /// </summary>
     [JsonPropertyName("custom")]

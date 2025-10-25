@@ -61,8 +61,17 @@ public sealed class Recording<TBody> : IRecording
     public RecorderStats RecordingStats => _recorderStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
-                                               bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata metadata, CancellationToken token = default)
+                                               bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata metadata, Stream? indexStream, CancellationToken token = default)
     {
+        // Validate: if index stream is provided, recording stream must be seekable
+        if (indexStream != null && !stream.CanSeek)
+        {
+            throw new ArgumentException(
+                "Index building requires seekable recording stream. " +
+                "Cannot build index for non-seekable streams (network, pipes, etc.)",
+                nameof(stream));
+        }
+
         var recording = new Recording<TBody>();
         recording.Start(stream, serialiser, token);
         var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
@@ -76,15 +85,12 @@ public sealed class Recording<TBody> : IRecording
             var recordingPath = fileStream.Name;
             var metadataPath = RecordingMetadata.GetMetadataPath(recordingPath);
             _ = RecordingMetadata.WriteAsync(metadata, metadataPath, token);
+        }
 
-            // Initialize streaming index writer if metadata specifies an index file and stream is seekable
-            if (!string.IsNullOrEmpty(metadata.IndexFile) && stream.CanSeek)
-            {
-                var indexPath = Path.IsPathRooted(metadata.IndexFile)
-                    ? metadata.IndexFile
-                    : Path.Combine(Path.GetDirectoryName(recordingPath) ?? ".", metadata.IndexFile);
-                recording._indexWriter = new StreamingIndexWriter(indexPath);
-            }
+        // Initialize streaming index writer if index stream provided
+        if (indexStream != null)
+        {
+            recording._indexWriter = new StreamingIndexWriter(indexStream);
         }
 
         return recording;

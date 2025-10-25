@@ -40,29 +40,36 @@ public static class RecordingIndex
     public const int DefaultInterval = 1000;
 
     /// <summary>
-    /// Builds an index from an existing recording file.
+    /// Builds an index from an existing recording stream.
     /// </summary>
     /// <typeparam name="TBody">The message body type.</typeparam>
-    /// <param name="recordingPath">Path to the recording file.</param>
-    /// <param name="indexPath">Path to write the index file.</param>
+    /// <param name="recordingStream">The recording stream (must be seekable).</param>
+    /// <param name="indexStream">The stream to write the index to (must be writable and seekable).</param>
     /// <param name="serializer">The message body serializer.</param>
     /// <param name="interval">Index every Nth message (default: 1000).</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of index entries created.</returns>
+    /// <exception cref="ArgumentException">Thrown if recordingStream is not seekable or indexStream is not writable/seekable.</exception>
     public static async Task<long> BuildAsync<TBody>(
-        string recordingPath,
-        string indexPath,
+        Stream recordingStream,
+        Stream indexStream,
         IMessageBodySerializer<TBody> serializer,
         int interval = DefaultInterval,
         IProgress<RecordingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (!recordingStream.CanSeek)
+            throw new ArgumentException("Recording stream must be seekable for index building", nameof(recordingStream));
+
+        if (!indexStream.CanWrite)
+            throw new ArgumentException("Index stream must be writable", nameof(indexStream));
+
+        if (!indexStream.CanSeek)
+            throw new ArgumentException("Index stream must be seekable", nameof(indexStream));
+
         if (interval <= 0)
             throw new ArgumentOutOfRangeException(nameof(interval), "Interval must be positive");
-
-        await using var recordingStream = File.OpenRead(recordingPath);
-        await using var indexStream = File.Create(indexPath);
 
         var recordingSize = recordingStream.Length;
         var entries = new List<IndexEntry>();
@@ -103,20 +110,23 @@ public static class RecordingIndex
     }
 
     /// <summary>
-    /// Reads an index file.
+    /// Reads an index from a stream.
     /// </summary>
-    /// <param name="indexPath">Path to the index file.</param>
+    /// <param name="indexStream">The index stream to read from (must be readable).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Index metadata and entries.</returns>
+    /// <exception cref="ArgumentException">Thrown if indexStream is not readable.</exception>
+    /// <exception cref="InvalidDataException">Thrown if the index format is invalid or unsupported.</exception>
     public static async Task<(int Interval, long TotalMessages, IndexEntry[] Entries)> ReadAsync(
-        string indexPath,
+        Stream indexStream,
         CancellationToken cancellationToken = default)
     {
-        await using var stream = File.OpenRead(indexPath);
+        if (!indexStream.CanRead)
+            throw new ArgumentException("Index stream must be readable", nameof(indexStream));
 
         // Read header
         var headerBuffer = new byte[HeaderSize];
-        await stream.ReadExactlyAsync(headerBuffer, cancellationToken);
+        await indexStream.ReadExactlyAsync(headerBuffer, cancellationToken);
 
         var magic = BinaryPrimitives.ReadUInt32LittleEndian(headerBuffer.AsSpan(0));
         if (magic != MagicNumber)
@@ -136,7 +146,7 @@ public static class RecordingIndex
 
         for (long i = 0; i < entryCount; i++)
         {
-            await stream.ReadExactlyAsync(entryBuffer, cancellationToken);
+            await indexStream.ReadExactlyAsync(entryBuffer, cancellationToken);
 
             var messageNumber = BinaryPrimitives.ReadInt64LittleEndian(entryBuffer.AsSpan(0));
             var fileOffset = BinaryPrimitives.ReadInt64LittleEndian(entryBuffer.AsSpan(8));

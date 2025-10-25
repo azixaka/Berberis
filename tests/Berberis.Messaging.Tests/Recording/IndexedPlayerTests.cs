@@ -22,14 +22,20 @@ public class IndexedPlayerTests
 
             // Act
             var serializer = new TestStringSerializer();
-            var entryCount = await RecordingIndex.BuildAsync(recordingFile, indexFile, serializer, interval: 10);
+            long entryCount;
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                entryCount = await RecordingIndex.BuildAsync(recordingStream, indexStream, serializer, interval: 10);
+            }
 
             // Assert
             entryCount.Should().Be(10); // 100 messages / interval 10 = 10 entries
             File.Exists(indexFile).Should().BeTrue();
 
             // Verify index can be read
-            var (interval, totalMessages, entries) = await RecordingIndex.ReadAsync(indexFile);
+            await using var indexReadStream = File.OpenRead(indexFile);
+            var (interval, totalMessages, entries) = await RecordingIndex.ReadAsync(indexReadStream);
             interval.Should().Be(10);
             totalMessages.Should().Be(100);
             entries.Should().HaveCount(10);
@@ -53,11 +59,17 @@ public class IndexedPlayerTests
         try
         {
             await CreateTestRecording(recordingFile, messageCount: 100);
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 10);
+
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 10);
+            }
 
             // Act
             await using var stream = File.OpenRead(recordingFile);
-            var player = await IndexedPlayer<string>.CreateAsync(stream, indexFile, new TestStringSerializer());
+            await using var idxStream = File.OpenRead(indexFile);
+            var player = await IndexedPlayer<string>.CreateAsync(stream, idxStream, new TestStringSerializer());
 
             // Seek to message 50
             var actualMessage = await player.SeekToMessageAsync(50);
@@ -93,7 +105,12 @@ public class IndexedPlayerTests
         try
         {
             await CreateTestRecording(recordingFile, messageCount: 100);
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 10);
+
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 10);
+            }
 
             // Get a timestamp from the middle of the recording
             long targetTimestamp;
@@ -131,8 +148,9 @@ public class IndexedPlayerTests
 
             // Act
             await using (var stream = File.OpenRead(recordingFile))
+            await using (var idxStream = File.OpenRead(indexFile))
             {
-                var player = await IndexedPlayer<string>.CreateAsync(stream, indexFile, new TestStringSerializer());
+                var player = await IndexedPlayer<string>.CreateAsync(stream, idxStream, new TestStringSerializer());
                 var actualMessage = await player.SeekToTimestampAsync(targetTimestamp);
 
                 // Assert - should seek to index entry at or before timestamp
@@ -157,11 +175,17 @@ public class IndexedPlayerTests
         try
         {
             await CreateTestRecording(recordingFile, messageCount: 100);
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 10);
+
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 10);
+            }
 
             // Act
             await using var stream = File.OpenRead(recordingFile);
-            var player = await IndexedPlayer<string>.CreateAsync(stream, indexFile, new TestStringSerializer());
+            await using var idxStream = File.OpenRead(indexFile);
+            var player = await IndexedPlayer<string>.CreateAsync(stream, idxStream, new TestStringSerializer());
             var actualMessage = await player.SeekToTimestampAsync(0); // Timestamp before any messages
 
             // Assert
@@ -184,11 +208,17 @@ public class IndexedPlayerTests
         try
         {
             await CreateTestRecording(recordingFile, messageCount: 100);
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 10);
+
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 10);
+            }
 
             // Act & Assert
             await using var stream = File.OpenRead(recordingFile);
-            var player = await IndexedPlayer<string>.CreateAsync(stream, indexFile, new TestStringSerializer());
+            await using var idxStream = File.OpenRead(indexFile);
+            var player = await IndexedPlayer<string>.CreateAsync(stream, idxStream, new TestStringSerializer());
 
             Func<Task> act = async () => await player.SeekToMessageAsync(1000); // Beyond total messages
             await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
@@ -269,7 +299,9 @@ public class IndexedPlayerTests
             var progress = new Progress<RecordingProgress>(p => progressReports.Add(p));
 
             // Act
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 100, progress: progress);
+            await using var recordingStream = File.OpenRead(recordingFile);
+            await using var indexStream = File.Create(indexFile);
+            await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 100, progress: progress);
 
             // Assert
             progressReports.Should().NotBeEmpty();
@@ -293,12 +325,19 @@ public class IndexedPlayerTests
         try
         {
             await CreateTestRecording(recordingFile, messageCount: 100);
-            await RecordingIndex.BuildAsync(recordingFile, indexFile, new TestStringSerializer(), interval: 10);
+
+            await using (var recordingStream = File.OpenRead(recordingFile))
+            await using (var indexStream = File.Create(indexFile))
+            {
+                await RecordingIndex.BuildAsync(recordingStream, indexStream, new TestStringSerializer(), interval: 10);
+            }
 
             // Act & Assert
             var nonSeekableStream = new MemoryStream(await File.ReadAllBytesAsync(recordingFile), writable: false);
+            await using var idxStream = File.OpenRead(indexFile);
+
             // Make stream non-seekable by wrapping it
-            Func<Task> act = async () => await IndexedPlayer<string>.CreateAsync(nonSeekableStream, indexFile, new TestStringSerializer());
+            Func<Task> act = async () => await IndexedPlayer<string>.CreateAsync(nonSeekableStream, idxStream, new TestStringSerializer());
 
             // Note: MemoryStream is seekable, so this test would need a custom non-seekable stream wrapper
             // For now, just verify the stream parameter validation works

@@ -26,7 +26,6 @@ public class RecordingMetadataTests
                 FirstMessageTicks = 123456789,
                 LastMessageTicks = 987654321,
                 DurationMs = 5000,
-                IndexFile = "recording.rec.idx",
                 Custom = new Dictionary<string, string>
                 {
                     ["application"] = "TestApp",
@@ -49,7 +48,6 @@ public class RecordingMetadataTests
             readMetadata.FirstMessageTicks.Should().Be(metadata.FirstMessageTicks);
             readMetadata.LastMessageTicks.Should().Be(metadata.LastMessageTicks);
             readMetadata.DurationMs.Should().Be(metadata.DurationMs);
-            readMetadata.IndexFile.Should().Be(metadata.IndexFile);
             readMetadata.Custom.Should().NotBeNull();
             readMetadata.Custom.Should().ContainKey("application");
             readMetadata.Custom!["application"].Should().Be("TestApp");
@@ -144,7 +142,13 @@ public class RecordingMetadataTests
             using (var fileStream = File.Create(tempRecordingFile))
             {
                 using var recording = xBar.Record("test.channel", fileStream, serializer, saveInitialState: false,
-                    conflationInterval: TimeSpan.Zero, metadata: metadata);
+                    conflationInterval: TimeSpan.Zero, configureMetadata: m =>
+                    {
+                        m.CreatedUtc = metadata.CreatedUtc;
+                        m.SerializerType = metadata.SerializerType;
+                        m.SerializerVersion = metadata.SerializerVersion;
+                        m.MessageType = metadata.MessageType;
+                    });
 
                 // Publish some test messages
                 for (int i = 0; i < 5; i++)
@@ -202,11 +206,18 @@ public class RecordingMetadataTests
                 await Task.Delay(200);
             }
 
-            // Wait a bit to ensure no async write happens
+            // Wait a bit to ensure async write completes
             await Task.Delay(100);
 
-            // Assert - backwards compatibility: no metadata file should be created
-            File.Exists(metadataPath).Should().BeFalse();
+            // Assert - metadata file SHOULD be created now (auto-populated)
+            // This is the new behavior - metadata is always auto-created for FileStreams
+            File.Exists(metadataPath).Should().BeTrue();
+
+            // Verify metadata has auto-populated fields
+            var readMetadata = await RecordingMetadata.ReadAsync(metadataPath);
+            readMetadata.Should().NotBeNull();
+            readMetadata!.Channel.Should().Be("test.channel");
+            readMetadata.SerializerType.Should().Contain("String");
         }
         finally
         {
@@ -262,7 +273,11 @@ public class RecordingMetadataTests
 
         // Act - using MemoryStream, not FileStream
         using (var recording = xBar.Record("test.channel", stream, serializer, saveInitialState: false,
-            conflationInterval: TimeSpan.Zero, metadata: metadata))
+            conflationInterval: TimeSpan.Zero, configureMetadata: m =>
+            {
+                m.CreatedUtc = metadata.CreatedUtc;
+                m.Channel = metadata.Channel;
+            }))
         {
             for (int i = 0; i < 5; i++)
             {

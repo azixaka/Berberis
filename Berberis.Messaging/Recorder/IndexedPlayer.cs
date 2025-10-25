@@ -42,17 +42,18 @@ public sealed class IndexedPlayer<TBody> : IIndexedPlayer<TBody>
     public RecorderStats Stats => _currentPlayer.Stats;
 
     /// <summary>
-    /// Creates an indexed player from a recording and its index file.
+    /// Creates an indexed player from a recording and its index stream.
     /// </summary>
     /// <param name="recordingStream">The recording stream (must be seekable).</param>
-    /// <param name="indexPath">Path to the index file.</param>
+    /// <param name="indexStream">The index stream (must be readable).</param>
     /// <param name="serializer">The message body serializer.</param>
     /// <param name="playMode">The playback mode.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>An indexed player instance.</returns>
+    /// <exception cref="ArgumentException">Thrown if recordingStream is not seekable or indexStream is not readable.</exception>
     public static async Task<IIndexedPlayer<TBody>> CreateAsync(
         Stream recordingStream,
-        string indexPath,
+        Stream indexStream,
         IMessageBodySerializer<TBody> serializer,
         PlayMode playMode = PlayMode.AsFastAsPossible,
         CancellationToken cancellationToken = default)
@@ -60,8 +61,11 @@ public sealed class IndexedPlayer<TBody> : IIndexedPlayer<TBody>
         if (!recordingStream.CanSeek)
             throw new ArgumentException("Recording stream must be seekable for indexed playback", nameof(recordingStream));
 
+        if (!indexStream.CanRead)
+            throw new ArgumentException("Index stream must be readable", nameof(indexStream));
+
         // Load index
-        var (interval, totalMessages, entries) = await RecordingIndex.ReadAsync(indexPath, cancellationToken);
+        var (interval, totalMessages, entries) = await RecordingIndex.ReadAsync(indexStream, cancellationToken);
 
         return new IndexedPlayer<TBody>(recordingStream, serializer, playMode, interval, totalMessages, entries);
     }
