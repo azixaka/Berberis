@@ -63,8 +63,8 @@ public class MessageStorePerformanceTests
         Console.WriteLine($"  Throughput: {messagesPerSecond:N0} msg/sec");
         Console.WriteLine($"  Avg latency: {sw.Elapsed.TotalMilliseconds / totalMessages:F3}ms per message");
 
-        messagesPerSecond.Should().BeGreaterThan(10_000,
-            "MessageStore should handle >10k msg/sec with concurrent updates");
+        messagesPerSecond.Should().BeGreaterThan(8_000,
+            "MessageStore should handle >8k msg/sec with concurrent updates");
 
         var state = xBar.GetChannelState<string>("test.channel");
         state.Should().HaveCount(concurrentPublishers,

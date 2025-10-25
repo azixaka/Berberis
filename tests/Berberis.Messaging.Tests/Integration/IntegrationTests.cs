@@ -16,6 +16,7 @@ public class IntegrationTests
         // Arrange
         var xBar = TestHelpers.CreateTestCrossBar();
         var results = new List<string>();
+        var completionSource = new TaskCompletionSource<bool>();
 
         // Create multi-stage pipeline: Input -> Transform -> Aggregate -> Output
         xBar.Subscribe<string>("input", async msg =>
@@ -33,12 +34,16 @@ public class IntegrationTests
         xBar.Subscribe<string>("output", msg =>
         {
             results.Add(msg.Body!);
+            completionSource.TrySetResult(true);
             return ValueTask.CompletedTask;
         }, CancellationToken.None);
 
         // Act
         await xBar.Publish("input", TestHelpers.CreateTestMessage("hello"), false);
-        await Task.Delay(200);
+
+        // Wait for pipeline to complete with timeout
+        var completed = await Task.WhenAny(completionSource.Task, Task.Delay(2000));
+        completed.Should().Be(completionSource.Task, "pipeline should complete within timeout");
 
         // Assert
         results.Should().ContainSingle()
