@@ -527,7 +527,7 @@ public class StatsTrackerTests
     // Thread safety tests
 
     [Fact]
-    public void StatsTracker_ConcurrentIncProcessed_NoLostIncrements()
+    public async Task StatsTracker_ConcurrentIncProcessed_NoLostIncrements()
     {
         // VALIDATES: Interlocked.Increment prevents lost updates during concurrent access
 
@@ -549,7 +549,7 @@ public class StatsTrackerTests
             });
         }
 
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
         // Assert
         var stats = statsTracker.GetStats(reset: false);
@@ -558,7 +558,7 @@ public class StatsTrackerTests
     }
 
     [Fact]
-    public void StatsTracker_ConcurrentRecordLatency_NoCorruption()
+    public async Task StatsTracker_ConcurrentRecordLatency_NoCorruption()
     {
         // VALIDATES: EWMA values remain valid under concurrent RecordLatency calls
 
@@ -584,7 +584,7 @@ public class StatsTrackerTests
             });
         }
 
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
         // Assert - Values should be reasonable, not corrupted
         var stats = statsTracker.GetStats(reset: false);
