@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Berberis.Messaging.Tests.Helpers;
 using FluentAssertions;
 
@@ -727,12 +728,24 @@ public class SubscriptionTests
 
         // Resume
         subscription.IsProcessingSuspended = false;
-        await Task.Delay(1000);
+
+        // Wait for at least one flush with timeout (conflation interval is 300ms)
+        var maxWait = TimeSpan.FromMilliseconds(2000);
+        var sw = Stopwatch.StartNew();
+        while (sw.Elapsed < maxWait)
+        {
+            lock (flushLock)
+            {
+                if (flushedMessages.Count > 0)
+                    break;
+            }
+            await Task.Delay(100);
+        }
 
         // Assert: Messages flushed after resume
         lock (flushLock)
         {
-            flushedMessages.Should().NotBeEmpty();
+            flushedMessages.Should().NotBeEmpty("messages should flush after resume");
             flushedMessages.Should().Contain(99); // Latest value
         }
     }
