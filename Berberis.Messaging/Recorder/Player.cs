@@ -16,6 +16,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
     private IMessageBodySerializer<TBody> _serialiser;
     private PlayMode _playMode;
     private readonly RecorderStatsReporter _recorderStatsReporter = new();
+    private long? _previousTimestamp;
 
     private Player(Stream stream, IMessageBodySerializer<TBody> serialiser, PlayMode playMode)
     {
@@ -70,6 +71,19 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                     var message = new Message<TBody>(chunk.Id, chunk.Timestamp, chunk.Type, 0, chunk.Key, 0, chunk.From, obj, 0);
 
                     _recorderStatsReporter.Stop(ticks, chunk.Length);
+
+                    // Respect original message timing if requested
+                    if (_playMode == PlayMode.RespectOriginalMessageIntervals && _previousTimestamp.HasValue)
+                    {
+                        var delay = chunk.Timestamp - _previousTimestamp.Value;
+                        if (delay > 0)
+                        {
+                            var delayTimeSpan = TimeSpan.FromTicks(delay);
+                            await Task.Delay(delayTimeSpan, token);
+                        }
+                    }
+
+                    _previousTimestamp = chunk.Timestamp;
 
                     yield return message;
                 }
@@ -144,8 +158,12 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
 
     /// <summary>
     /// Disposes the player resources.
+    /// The stream is owned by the caller and will not be disposed.
+    /// Multiple calls to Dispose are safe (idempotent).
     /// </summary>
     public void Dispose()
     {
+        // Stream is owned by the caller - we don't dispose it
+        // This follows .NET conventions where the creator of a resource is responsible for its disposal
     }
 }

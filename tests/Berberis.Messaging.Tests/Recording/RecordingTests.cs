@@ -282,6 +282,49 @@ public class RecordingTests
     }
 
     [Fact]
+    public async Task Player_RespectOriginalMessageIntervals_PreservesTiming()
+    {
+        // Arrange - Record messages with known timing
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+        var messageCount = 5;
+        var intervalMs = 100;
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            for (int i = 0; i < messageCount; i++)
+            {
+                await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"msg-{i}"), false);
+                if (i < messageCount - 1)
+                {
+                    await Task.Delay(intervalMs);
+                }
+            }
+            await Task.Delay(100);
+        }
+
+        // Act - Playback with RespectOriginalMessageIntervals mode
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer, PlayMode.RespectOriginalMessageIntervals);
+        var startTime = DateTime.UtcNow;
+        var count = 0;
+
+        await foreach (var msg in player.MessagesAsync(CancellationToken.None))
+        {
+            count++;
+        }
+
+        var duration = DateTime.UtcNow - startTime;
+        var expectedDuration = TimeSpan.FromMilliseconds((messageCount - 1) * intervalMs);
+
+        // Assert - Should take approximately the same time as original recording
+        count.Should().Be(messageCount);
+        duration.Should().BeGreaterThan(expectedDuration.Subtract(TimeSpan.FromMilliseconds(50)));
+        duration.Should().BeLessThan(expectedDuration.Add(TimeSpan.FromMilliseconds(200)));
+    }
+
+    [Fact]
     public async Task Player_DefaultMode_IsAsFastAsPossible()
     {
         // Arrange
@@ -664,6 +707,43 @@ public class RecordingTests
 
         // Attempting to iterate after dispose should fail gracefully or throw
         // Note: This tests disposal behavior
+    }
+
+    [Fact]
+    public async Task Player_Dispose_DoesNotCloseCallerOwnedStream()
+    {
+        // VALIDATES: Player does not take ownership of the stream
+        // VALIDATES: Caller retains control of stream lifecycle
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var stream = new MemoryStream();
+        var serializer = new TestStringSerializer();
+
+        using (var recording = xBar.Record("test.channel", stream, serializer))
+        {
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage("test-msg"), false);
+            await Task.Delay(50);
+        }
+
+        stream.Position = 0;
+        var player = Player<string>.Create(stream, serializer);
+
+        // Act - Dispose player
+        player.Dispose();
+
+        // Assert - Stream should still be usable by caller
+        stream.CanRead.Should().BeTrue("player should not dispose caller-owned stream");
+        stream.CanSeek.Should().BeTrue("player should not dispose caller-owned stream");
+
+        // Caller can still manipulate the stream
+        stream.Position = 0;
+        var buffer = new byte[10];
+        var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+        bytesRead.Should().BeGreaterThan(0, "stream should still be readable after player disposal");
+
+        // Caller is responsible for disposing the stream
+        stream.Dispose();
     }
 
     [Fact]

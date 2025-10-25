@@ -17,23 +17,16 @@ public sealed class Recording<TBody> : IRecording
     private IMessageBodySerializer<TBody> _serialiser = null!;
     private Pipe _pipe = null!;
     private readonly RecorderStatsReporter _recorderStatsReporter = new();
-    private volatile bool _ready;
 
     private readonly CancellationTokenSource _cts = new();
 
     private Recording() { }
 
-    private void Start(ISubscription subscription, Stream stream, IMessageBodySerializer<TBody> serialiser, CancellationToken token)
+    private void Start(Stream stream, IMessageBodySerializer<TBody> serialiser, CancellationToken token)
     {
-        _subscription = subscription;
         _stream = stream;
         _serialiser = serialiser;
         _pipe = new Pipe();
-
-        _ready = true;
-
-        var cts = token == default ? _cts : CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, token);
-        MessageLoop = MonitorTasksAsync(_subscription.MessageLoop, PipeReaderLoop(cts.Token), cts);
     }
 
     private static async Task MonitorTasksAsync(Task subscriptionTask, Task pipeReaderTask, CancellationTokenSource cts)
@@ -59,24 +52,23 @@ public sealed class Recording<TBody> : IRecording
                                                bool saveInitialState, TimeSpan conflationInterval, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
+        recording.Start(stream, serialiser, token);
         var subscription = crossBar.Subscribe<TBody>(channel, recording.MessageHandler, "Berberis.Recording", saveInitialState, conflationInterval, token);
-        recording.Start(subscription, stream, serialiser, token);
+        recording._subscription = subscription;
+        var cts = token == default ? recording._cts : CancellationTokenSource.CreateLinkedTokenSource(recording._cts.Token, token);
+        recording.MessageLoop = MonitorTasksAsync(subscription.MessageLoop, recording.PipeReaderLoop(cts.Token), cts);
         return recording;
     }
 
     private ValueTask MessageHandler(Message<TBody> message)
     {
-        // maybe return "cold subscription" and then activate it when initialised
-        if (!_ready)
-            return ValueTask.CompletedTask;
-
         var pipeWriter = _pipe.Writer;
 
         var messageLengthSpan = MessageCodec.WriteChannelMessageHeader(pipeWriter, _serialiser.Version, ref message);
 
         if (message.MessageType == MessageType.ChannelUpdate)
         {
-            // Write serialised messasge body
+            // Write serialised message body
             _serialiser.Serialize(message.Body!, pipeWriter);
         }
 

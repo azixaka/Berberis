@@ -22,6 +22,14 @@ public sealed class RecorderStatsReporter
     private readonly object _syncObj = new();
 
     /// <summary>
+    /// Initializes a new instance of the RecorderStatsReporter class.
+    /// </summary>
+    public RecorderStatsReporter()
+    {
+        _lastTicks = Stopwatch.GetTimestamp();
+    }
+
+    /// <summary>
     /// Starts timing a recording operation.
     /// </summary>
     /// <returns>The timestamp when the operation started.</returns>
