@@ -94,14 +94,14 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                 {
                     var obj = _serialiser.Deserialize(chunk.Body);
 
-                    var message = new Message<TBody>(chunk.Id, chunk.Timestamp, chunk.Type, 0, chunk.Key, 0, chunk.From, obj, 0);
+                    var message = new Message<TBody>(chunk.Id, chunk.TimestampTicks, chunk.Type, 0, chunk.Key, 0, chunk.From, obj, 0);
 
                     _recorderStatsReporter.Stop(ticks, chunk.Length);
 
                     // Respect original message timing if requested
                     if (_playMode == PlayMode.RespectOriginalMessageIntervals && _previousTimestamp.HasValue)
                     {
-                        var delay = chunk.Timestamp - _previousTimestamp.Value;
+                        var delay = chunk.TimestampTicks - _previousTimestamp.Value;
                         if (delay > 0)
                         {
                             var delayTimeSpan = TimeSpan.FromTicks(delay);
@@ -109,7 +109,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
                         }
                     }
 
-                    _previousTimestamp = chunk.Timestamp;
+                    _previousTimestamp = chunk.TimestampTicks;
                     _messagesProcessed++;
 
                     // Report progress every 1000 messages
@@ -142,67 +142,7 @@ public sealed partial class Player<TBody> : IPlayer<TBody>
 
     private async ValueTask<MessageChunk?> GetNextChunk(CancellationToken token)
     {
-        // Rent small header buffer from pool (eliminates 28-byte allocation per message)
-        var headerBuffer = ArrayPool<byte>.Shared.Rent(MessageCodec.HeaderSize);
-
-        try
-        {
-            var rcvdCnt = await _stream.ReadAsync(headerBuffer.AsMemory(0, MessageCodec.HeaderSize));
-
-            if (rcvdCnt == 0)
-                return null;
-
-            while (rcvdCnt < MessageCodec.HeaderSize)
-            {
-                var rcvdBytes = await _stream.ReadAsync(headerBuffer, rcvdCnt, MessageCodec.HeaderSize - rcvdCnt);
-
-                if (rcvdBytes == 0)
-                    return null;
-
-                rcvdCnt += rcvdBytes;
-            }
-
-            var totalMsgLen = BinaryPrimitives.ReadInt32LittleEndian(headerBuffer);
-
-            var buffer = ArrayPool<byte>.Shared.Rent(totalMsgLen);
-
-            try
-            {
-                var bufferMemory = buffer.AsMemory();
-
-                headerBuffer.AsSpan(0, MessageCodec.HeaderSize).CopyTo(bufferMemory.Span);
-
-                var rcvdBytes = await _stream.ReadAsync(buffer, rcvdCnt, totalMsgLen - rcvdCnt);
-
-                if (rcvdBytes == 0)
-                    return null;
-
-                rcvdCnt += rcvdBytes;
-
-                while (rcvdCnt < totalMsgLen)
-                {
-                    rcvdBytes = await _stream.ReadAsync(buffer, rcvdCnt, totalMsgLen - rcvdCnt);
-
-                    if (rcvdBytes == 0)
-                        return null;
-
-                    rcvdCnt += rcvdBytes;
-                }
-
-                var msgChunk = new MessageChunk(buffer, totalMsgLen);
-
-                return msgChunk;
-            }
-            catch
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-                throw;
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(headerBuffer);
-        }
+        return await MessageChunkReader.ReadAsync(_stream, token);
     }
 
     /// <summary>
