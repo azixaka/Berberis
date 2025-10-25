@@ -405,24 +405,32 @@ await subscription.MessageLoop;
 
 ### Record and Replay
 
-Capture message streams to binary files for debugging, testing, or auditing:
+Capture message streams to binary files for debugging, testing, or auditing. See [docs/Recorder.md](docs/Recorder.md) for detailed documentation.
 
 ```csharp
 using Berberis.Recorder;
+using System.Buffers;
+using System.Buffers.Binary;
 
 // Define a serializer for your message type
-public class StockPriceSerializer : IBinaryCodec<StockPrice>
+public class StockPriceSerializer : IMessageBodySerializer<StockPrice>
 {
-    public void Encode(BinaryWriter writer, StockPrice value)
+    public SerializerVersion Version => new(1, 0);
+
+    public void Serialize(StockPrice value, IBufferWriter<byte> writer)
     {
-        writer.Write(value.Symbol);
-        writer.Write(value.Price);
+        var span = writer.GetSpan(value.Symbol.Length * 3 + 12);
+        var bytesWritten = Encoding.UTF8.GetBytes(value.Symbol, span.Slice(4));
+        BinaryPrimitives.WriteInt32LittleEndian(span, bytesWritten);
+        BinaryPrimitives.WriteDoubleLittleEndian(span.Slice(4 + bytesWritten), value.Price);
+        writer.Advance(4 + bytesWritten + 8);
     }
 
-    public StockPrice Decode(BinaryReader reader)
+    public StockPrice Deserialize(ReadOnlySpan<byte> data)
     {
-        var symbol = reader.ReadString();
-        var price = reader.ReadDouble();
+        var symbolLength = BinaryPrimitives.ReadInt32LittleEndian(data);
+        var symbol = Encoding.UTF8.GetString(data.Slice(4, symbolLength));
+        var price = BinaryPrimitives.ReadDoubleLittleEndian(data.Slice(4 + symbolLength));
         return new StockPrice(symbol, price);
     }
 }
@@ -438,7 +446,7 @@ public class RecorderService : BackgroundService
         using var recording = _xBar.Record(
             channelOrPattern: "stock.prices.>",
             stream: fileStream,
-            codec: new StockPriceSerializer(),
+            serialiser: new StockPriceSerializer(),
             cancellationToken: stoppingToken
         );
 
@@ -459,15 +467,16 @@ public class PlayerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var fileStream = File.OpenRead("stock-prices.bin");
-        var player = Player<StockPrice>.Create(fileStream, new StockPriceSerializer());
+        // PlayMode.RespectOriginalMessageIntervals preserves original timing
+        var player = Player<StockPrice>.Create(
+            fileStream,
+            new StockPriceSerializer(),
+            PlayMode.AsFastAsPossible);
 
         await foreach (var message in player.MessagesAsync(stoppingToken))
         {
             // Republish to the same or different channel
             await _xBar.Publish("replay.stock.prices", message.Body, key: message.Key);
-
-            // Optional: Simulate original timing
-            // await Task.Delay(originalInterval);
         }
     }
 }
@@ -1156,7 +1165,7 @@ void ResetChannel<TBody>(string channelName);
 bool TryDeleteChannel(string channelName);
 
 // Recording
-IRecording Record<TBody>(string channelOrPattern, Stream stream, IBinaryCodec<TBody> codec, ...);
+IRecording Record<TBody>(string channelOrPattern, Stream stream, IMessageBodySerializer<TBody> serialiser, ...);
 
 // Observability
 IEnumerable<IChannel> GetChannels();
