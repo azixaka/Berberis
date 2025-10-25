@@ -55,7 +55,7 @@ public sealed class StatsTracker
 
     internal void IncNumOfDequeuedMessages() => _totalMessagesDequeued++;
 
-    internal void IncNumOfProcessedMessages() => _totalMessagesProcessed++;
+    internal void IncNumOfProcessedMessages() => Interlocked.Increment(ref _totalMessagesProcessed);
 
     internal void IncNumOfTimeouts() => Interlocked.Increment(ref _numOfTimeouts);
 
@@ -122,9 +122,6 @@ public sealed class StatsTracker
             svcAvg = _svcTimeEwma.AverageValue;
             svcMin = _svcTimeEwma.MinValue;
             svcMax = _svcTimeEwma.MaxValue;
-
-            latPct = float.NaN;
-            svcPct = float.NaN;
 
             if (_includePercentileStats)
             {

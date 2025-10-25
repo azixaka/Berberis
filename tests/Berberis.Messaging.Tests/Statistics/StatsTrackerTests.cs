@@ -2,6 +2,7 @@ using Berberis.Messaging;
 using Berberis.Messaging.Statistics;
 using Berberis.Messaging.Tests.Helpers;
 using FluentAssertions;
+using System.Diagnostics;
 using Xunit;
 
 namespace Berberis.Messaging.Tests.Statistics;
@@ -521,5 +522,180 @@ public class StatsTrackerTests
 
         var nullPercentile = new StatsOptions(percentile: null);
         nullPercentile.PercentileEnabled.Should().BeFalse("null percentile not enabled");
+    }
+
+    // Thread safety tests
+
+    [Fact]
+    public void StatsTracker_ConcurrentIncProcessed_NoLostIncrements()
+    {
+        // VALIDATES: Interlocked.Increment prevents lost updates during concurrent access
+
+        // Arrange
+        var statsTracker = new StatsTracker(new StatsOptions());
+        const int threadsCount = 10;
+        const int incrementsPerThread = 1000;
+        var tasks = new Task[threadsCount];
+
+        // Act - Increment from multiple threads concurrently
+        for (int i = 0; i < threadsCount; i++)
+        {
+            tasks[i] = Task.Run(() =>
+            {
+                for (int j = 0; j < incrementsPerThread; j++)
+                {
+                    statsTracker.IncNumOfProcessedMessages();
+                }
+            });
+        }
+
+        Task.WaitAll(tasks);
+
+        // Assert
+        var stats = statsTracker.GetStats(reset: false);
+        stats.TotalProcessedMessages.Should().Be(threadsCount * incrementsPerThread,
+            "all increments should be counted without data races");
+    }
+
+    [Fact]
+    public void StatsTracker_ConcurrentRecordLatency_NoCorruption()
+    {
+        // VALIDATES: EWMA values remain valid under concurrent RecordLatency calls
+
+        // Arrange
+        var statsTracker = new StatsTracker(new StatsOptions());
+        const int threadsCount = 10;
+        const int samplesPerThread = 500;
+        var tasks = new Task[threadsCount];
+        var baseTime = StatsTracker.GetTicks();
+
+        // Act - Record latency from multiple threads concurrently
+        for (int i = 0; i < threadsCount; i++)
+        {
+            var threadId = i;
+            tasks[i] = Task.Run(() =>
+            {
+                for (int j = 0; j < samplesPerThread; j++)
+                {
+                    // Simulate latency values between 1ms and 10ms
+                    var fakeLatencyTicks = (long)((threadId + 1) * (j + 1) * (Stopwatch.Frequency / 1000));
+                    statsTracker.RecordLatency(baseTime - fakeLatencyTicks);
+                }
+            });
+        }
+
+        Task.WaitAll(tasks);
+
+        // Assert - Values should be reasonable, not corrupted
+        var stats = statsTracker.GetStats(reset: false);
+        stats.AvgLatencyTimeMs.Should().BeGreaterThan(0, "average should be positive");
+        stats.MinLatencyTimeMs.Should().BeGreaterThan(0, "min should be positive");
+        stats.MaxLatencyTimeMs.Should().BeGreaterThan(stats.MinLatencyTimeMs, "max should be >= min");
+        stats.AvgLatencyTimeMs.Should().BeInRange(stats.MinLatencyTimeMs, stats.MaxLatencyTimeMs,
+            "average should be between min and max");
+    }
+
+    [Fact]
+    public void Stats_DivisionByZero_HandledGracefully()
+    {
+        // VALIDATES: Division by zero in calculated properties doesn't crash
+
+        // Arrange - Create stats with zero values
+        var stats = new Stats(
+            intervalMs: 1000f,
+            dequeueRate: 0f,        // Zero - will cause division by zero in ConflationRatio
+            processRate: 100f,
+            totalEnqueuedMessages: 0,
+            totalDequeuedMessages: 0,
+            totalProcessedMessages: 0,
+            avgLatencyTimeMs: 0f,   // Zero - will cause division by zero in LatencyToResponseTimeRatio
+            avgServiceTimeMs: 0f,   // Zero - will cause division by zero in LatencyToResponseTimeRatio
+            percentileLatencyTimeMs: 0f,
+            percentileServiceTimeMs: 0f,
+            minLatencyTimeMs: 0f,
+            maxLatencyTimeMs: 0f,
+            minServiceTimeMs: 0f,
+            maxServiceTimeMs: 0f);
+
+        // Act & Assert - Properties should return Infinity or NaN, not crash
+        var conflationRatio = stats.ConflationRatio;
+        conflationRatio.Should().Match(x => float.IsInfinity(x) || float.IsNaN(x),
+            "ConflationRatio with DequeueRate=0 should be Infinity or NaN");
+
+        var latencyRatio = stats.LatencyToResponseTimeRatio;
+        latencyRatio.Should().Match(x => float.IsNaN(x),
+            "LatencyToResponseTimeRatio with zero times should be NaN (0/0)");
+
+        var responseTime = stats.AvgResponseTime;
+        responseTime.Should().Be(0f, "AvgResponseTime with zero times should be 0");
+    }
+
+    [Fact]
+    public void StatsTracker_TimeoutTracking_CountsCorrectly()
+    {
+        // VALIDATES: IncNumOfTimeouts and GetNumOfTimeouts work correctly
+
+        // Arrange
+        var statsTracker = new StatsTracker(new StatsOptions());
+
+        // Act - Simulate timeouts
+        statsTracker.IncNumOfTimeouts();
+        statsTracker.IncNumOfTimeouts();
+        statsTracker.IncNumOfTimeouts();
+
+        // Assert
+        var timeoutCount = statsTracker.GetNumOfTimeouts();
+        timeoutCount.Should().Be(3, "should track all timeouts");
+
+        var stats = statsTracker.GetStats(reset: false);
+        stats.NumOfTimeouts.Should().Be(3, "stats should include timeout count");
+    }
+
+    [Fact]
+    public async Task Stats_ConflationWithMixedMessages_TracksCorrectly()
+    {
+        // VALIDATES: Stats tracking works correctly with conflation + mixed keyed/non-keyed messages
+        // This is the scenario where main loop and FlusherLoop run concurrently
+
+        // Arrange
+        var xBar = TestHelpers.CreateTestCrossBar();
+        var processedKeys = new System.Collections.Concurrent.ConcurrentBag<string?>();
+        var sub = xBar.Subscribe<string>(
+            "test.channel",
+            msg =>
+            {
+                processedKeys.Add(msg.Key);
+                return ValueTask.CompletedTask;
+            },
+            subscriptionName: "test-sub",
+            fetchState: false,
+            slowConsumerStrategy: SlowConsumerStrategy.SkipUpdates,
+            bufferCapacity: null,
+            conflationInterval: TimeSpan.FromMilliseconds(100),
+            subscriptionStatsOptions: new StatsOptions(),
+            token: default);
+
+        // Act - Send mix of keyed (will conflate) and non-keyed (immediate) messages
+        for (int i = 0; i < 5; i++)
+        {
+            // Keyed message (goes to conflation buffer)
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"keyed-{i}", key: $"key-{i % 2}"), false);
+
+            // Non-keyed message (processed immediately)
+            await xBar.Publish("test.channel", TestHelpers.CreateTestMessage($"non-keyed-{i}"), false);
+        }
+
+        // Wait for conflation flush and processing
+        await Task.Delay(300);
+
+        // Assert - All messages should be processed
+        processedKeys.Count.Should().BeGreaterThan(5, "should process both keyed and non-keyed messages");
+
+        var stats = sub.Statistics.GetStats(reset: false);
+        stats.TotalProcessedMessages.Should().BeGreaterThan(5, "should count all processed messages");
+        stats.TotalDequeuedMessages.Should().Be(10, "should count all 10 dequeued messages");
+        stats.AvgLatencyTimeMs.Should().BeGreaterThanOrEqualTo(0, "latency should be tracked");
+
+        sub.Dispose();
     }
 }

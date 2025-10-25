@@ -175,7 +175,6 @@ public sealed partial class Subscription<TBody> : ISubscription
                     continue;
                 }
 
-                var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                 Statistics.IncNumOfDequeuedMessages();
 
                 if (!_isSystemChannel && _crossBar.MessageTracingEnabled)
@@ -195,6 +194,7 @@ public sealed partial class Subscription<TBody> : ISubscription
 
                 if (localState == null || string.IsNullOrEmpty(message.Key))
                 {
+                    var latencyTicks = Statistics.RecordLatency(message.InceptionTicks);
                     // !!!!!!! THIS IS A COPY OF THE ProcessMessage METHOD body except the PostProcessMessage call HERE
                     // The ProcessMessage code is called on every update (very often) OR in each conflation cycle (less often) OR when sending initial state (once for all the data)
                     // By copying its content here, we avoid massive async state machine allocations
