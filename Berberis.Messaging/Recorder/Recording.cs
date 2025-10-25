@@ -61,7 +61,7 @@ public sealed class Recording<TBody> : IRecording
     public RecorderStats RecordingStats => _recorderStatsReporter.GetStats();
 
     internal static IRecording CreateRecording(ICrossBar crossBar, string channel, Stream stream, IMessageBodySerializer<TBody> serialiser,
-                                               bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata? metadata, CancellationToken token = default)
+                                               bool saveInitialState, TimeSpan conflationInterval, RecordingMetadata metadata, CancellationToken token = default)
     {
         var recording = new Recording<TBody>();
         recording.Start(stream, serialiser, token);
@@ -70,8 +70,8 @@ public sealed class Recording<TBody> : IRecording
         var cts = token == default ? recording._cts : CancellationTokenSource.CreateLinkedTokenSource(recording._cts.Token, token);
         recording.MessageLoop = MonitorTasksAsync(subscription.MessageLoop, recording.PipeReaderLoop(cts.Token), cts);
 
-        // Write metadata file if provided and stream is a FileStream
-        if (metadata != null && stream is FileStream fileStream)
+        // Write metadata file if stream is a FileStream
+        if (stream is FileStream fileStream)
         {
             var recordingPath = fileStream.Name;
             var metadataPath = RecordingMetadata.GetMetadataPath(recordingPath);

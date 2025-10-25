@@ -481,43 +481,35 @@ public class PlayerService : BackgroundService
     }
 }
 
-// Recording with Metadata: Add self-describing metadata to recordings
+// Recording with Custom Metadata: Metadata is auto-created, just add custom fields
 public class RecorderWithMetadataService : BackgroundService
 {
     private readonly ICrossBar _xBar;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var metadata = new RecordingMetadata
-        {
-            CreatedUtc = DateTime.UtcNow,
-            Channel = "stock.prices.>",
-            SerializerType = "StockPriceSerializer",
-            SerializerVersion = 1,
-            MessageType = "StockPrice",
-            Custom = new Dictionary<string, string>
-            {
-                ["application"] = "StockRecorder",
-                ["version"] = "1.0.0"
-            }
-        };
-
         using var fileStream = File.OpenWrite("stock-prices.bin");
         using var recording = _xBar.Record(
-            channelOrPattern: "stock.prices.>",
+            channel: "stock.prices.>",
             stream: fileStream,
             serialiser: new StockPriceSerializer(),
             saveInitialState: false,
             conflationInterval: TimeSpan.Zero,
-            metadata: metadata,
-            cancellationToken: stoppingToken
+            configureMetadata: meta =>
+            {
+                // Metadata already populated with: Channel, SerializerType, MessageType, CreatedUtc
+                // Just add your custom fields
+                meta.Custom["application"] = "StockRecorder";
+                meta.Custom["version"] = "1.0.0";
+            },
+            token: stoppingToken
         );
 
         await Task.Delay(10_000, stoppingToken);
         recording.Dispose();
         await recording.MessageLoop;
 
-        // Metadata is automatically written to "stock-prices.bin.meta.json"
+        // Metadata automatically written to "stock-prices.bin.meta.json"
     }
 }
 
@@ -575,25 +567,19 @@ await foreach (var msg in progressPlayer.MessagesAsync(CancellationToken.None))
 }
 
 // Streaming Index: Build index during recording (no post-processing!)
-var metadata = new RecordingMetadata
-{
-    CreatedUtc = DateTime.UtcNow,
-    Channel = "stock.prices",
-    IndexFile = "stock-prices.bin.idx",  // Index built automatically during recording
-    SerializerType = "StockPriceSerializer",
-    SerializerVersion = 1,
-    MessageType = "StockPrice"
-};
-
 using var fileStream = File.OpenWrite("stock-prices.bin");
 using var recording = _xBar.Record(
     "stock.prices",
     fileStream,
     new StockPriceSerializer(),
-    metadata: metadata  // Index will be built as messages are recorded!
+    configureMetadata: meta =>
+    {
+        // Set IndexFile to enable streaming index creation
+        meta.IndexFile = RecordingIndex.GetIndexPath(fileStream.Name);  // "stock-prices.bin.idx"
+    }
 );
 
-// Messages are being recorded AND indexed simultaneously
+// Messages are being recorded AND indexed simultaneously!
 // No need to call RecordingIndex.BuildAsync() later!
 
 // Recording Utilities: Merge, split, filter, and convert recordings
