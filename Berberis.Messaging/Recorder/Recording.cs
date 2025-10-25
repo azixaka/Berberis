@@ -99,7 +99,7 @@ public sealed class Recording<TBody> : IRecording
 
         var pipeReader = _pipe.Reader;
 
-        while (!token.IsCancellationRequested)
+        while (true)
         {
             try
             {
@@ -129,7 +129,31 @@ public sealed class Recording<TBody> : IRecording
                     break;
                 }
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                // On cancellation, drain any remaining data in the pipe
+                ReadResult finalResult = await pipeReader.ReadAsync(CancellationToken.None);
+                ReadOnlySequence<byte> finalBuffer = finalResult.Buffer;
+
+                while (true)
+                {
+                    var ticks = _recorderStatsReporter.Start();
+                    var success = TryReadMessage(ref finalBuffer, out ReadOnlySequence<byte> message);
+                    if (success)
+                    {
+                        foreach (var memory in message)
+                        {
+                            await _stream.WriteAsync(memory);
+                        }
+
+                        _recorderStatsReporter.Stop(ticks, message.Length);
+                    }
+                    else break;
+                }
+
+                pipeReader.AdvanceTo(finalBuffer.Start, finalBuffer.End);
+                break;
+            }
         }
 
         bool TryReadMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message)
@@ -156,9 +180,9 @@ public sealed class Recording<TBody> : IRecording
     /// </summary>
     public void Dispose()
     {
-        _cts.Cancel();
         _subscription?.TryDispose();
         _pipe.Writer.Complete();
+        _cts.Cancel();
         _pipe.Reader.Complete();
     }
 }
