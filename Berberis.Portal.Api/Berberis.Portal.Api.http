@@ -1,0 +1,6 @@
+@Berberis.Portal.Api_HostAddress = http://localhost:5133
+
+GET {{Berberis.Portal.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Berberis Portal - Admin Dashboard</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Berberis Portal</h1>
+                <span class="header-subtitle">CrossBar Monitoring & Admin Dashboard</span>
+            </div>
+            <div class="header-right">
+                <span class="connection-status" id="connection-status">
+                    <span class="status-indicator"></span>
+                    <span class="status-text">Connecting...</span>
+                </span>
+            </div>
+        </header>
+
+        <div class="app-body">
+            <!-- Sidebar Navigation -->
+            <nav class="app-sidebar">
+                <div class="nav-section">
+                    <div class="nav-section-title">Monitoring</div>
+                    <a href="#/overview" class="nav-item" data-route="overview">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">Overview</span>
+                    </a>
+                    <a href="#/channels" class="nav-item" data-route="channels">
+                        <span class="nav-icon">📡</span>
+                        <span class="nav-label">Channels</span>
+                    </a>
+                    <a href="#/subscriptions" class="nav-item" data-route="subscriptions">
+                        <span class="nav-icon">📨</span>
+                        <span class="nav-label">Subscriptions</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Analytics</div>
+                    <a href="#/analytics" class="nav-item" data-route="analytics">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-label">Performance</span>
+                    </a>
+                    <a href="#/bottlenecks" class="nav-item" data-route="bottlenecks">
+                        <span class="nav-icon">⚠️</span>
+                        <span class="nav-label">Bottlenecks</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Debugging</div>
+                    <a href="#/lifecycle" class="nav-item" data-route="lifecycle">
+                        <span class="nav-icon">🔄</span>
+                        <span class="nav-label">Lifecycle Events</span>
+                    </a>
+                    <a href="#/traces" class="nav-item" data-route="traces">
+                        <span class="nav-icon">🔍</span>
+                        <span class="nav-label">Message Traces</span>
+                    </a>
+                    <a href="#/errors" class="nav-item" data-route="errors">
+                        <span class="nav-icon">❌</span>
+                        <span class="nav-label">Error Log</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Tools</div>
+                    <a href="#/pattern-tester" class="nav-item" data-route="pattern-tester">
+                        <span class="nav-icon">🎯</span>
+                        <span class="nav-label">Pattern Tester</span>
+                    </a>
+                    <a href="#/configuration" class="nav-item" data-route="configuration">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-label">Configuration</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main class="app-content" id="app-content">
+                <div class="loading">Loading...</div>
+            </main>
+        </div>
+    </div>
+
+    <!-- SignalR Client Library (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="module" src="/js/api-client.js"></script>
+    <script type="module" src="/js/signalr-client.js"></script>
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
