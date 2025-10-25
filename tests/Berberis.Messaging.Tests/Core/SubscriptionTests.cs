@@ -444,9 +444,15 @@ public class SubscriptionTests
 
         await Task.Delay(200); // Let messages queue up
 
-        // Release processing and give time to process
+        // Release processing and wait for at least one message to be processed
         processingSemaphore.Release();
-        await Task.Delay(500);
+
+        // Wait for receivedCount > 0 with timeout (more reliable than fixed delay)
+        var startTime = DateTime.UtcNow;
+        while (Volatile.Read(ref receivedCount) == 0 && (DateTime.UtcNow - startTime).TotalMilliseconds < 2000)
+        {
+            await Task.Delay(10);
+        }
 
         // Assert - Some messages should have been skipped
         receivedCount.Should().BeLessThan(20);
@@ -950,7 +956,12 @@ public class SubscriptionTests
         await xBar.Publish("traced.channel", TestHelpers.CreateTestMessage("msg1"), false);
         await xBar.Publish("traced.channel", TestHelpers.CreateTestMessage("msg2"), false);
 
-        await Task.Delay(200);
+        // Wait for messages to be processed with timeout (more reliable than fixed delay)
+        var startTime = DateTime.UtcNow;
+        while (receivedMessages.Count < 2 && (DateTime.UtcNow - startTime).TotalMilliseconds < 2000)
+        {
+            await Task.Delay(10);
+        }
 
         // Assert
         receivedMessages.Should().HaveCount(2);
