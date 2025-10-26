@@ -24,6 +24,7 @@ public sealed class StatsTracker
 
     private readonly ExponentialWeightedMovingAverage _latencyEwma;
     private readonly ExponentialWeightedMovingAverage _svcTimeEwma;
+    private readonly ExponentialWeightedMovingAverage _flushDurationEwma;
 
     private readonly bool _includePercentileStats;
     private readonly MovingPercentile? _latencyPercentile;
@@ -36,6 +37,7 @@ public sealed class StatsTracker
 
         _latencyEwma = new(statsOptions.EwmaWindowSize);
         _svcTimeEwma = new(statsOptions.EwmaWindowSize);
+        _flushDurationEwma = new(statsOptions.EwmaWindowSize);
 
         _includePercentileStats = statsOptions.PercentileEnabled;
 
@@ -83,6 +85,11 @@ public sealed class StatsTracker
         return svcTime;
     }
 
+    internal void RecordFlushDuration(long durationTicks)
+    {
+        _flushDurationEwma.NewSample(durationTicks);
+    }
+
     /// <summary>Gets statistics snapshot.</summary>
     /// <param name="reset">Reset counters after snapshot.</param>
     public Stats GetStats(bool reset)
@@ -104,6 +111,9 @@ public sealed class StatsTracker
         float svcAvg;
         float svcMin;
         float svcMax;
+        float flushAvg;
+        float flushMin;
+        float flushMax;
 
         float latPct = float.NaN;
         float svcPct = float.NaN;
@@ -123,6 +133,10 @@ public sealed class StatsTracker
             svcMin = _svcTimeEwma.MinValue;
             svcMax = _svcTimeEwma.MaxValue;
 
+            flushAvg = _flushDurationEwma.AverageValue;
+            flushMin = _flushDurationEwma.MinValue;
+            flushMax = _flushDurationEwma.MaxValue;
+
             if (_includePercentileStats)
             {
                 latPct = _latencyPercentile!.PercentileValue;
@@ -138,6 +152,7 @@ public sealed class StatsTracker
 
                 _latencyEwma.Reset();
                 _svcTimeEwma.Reset();
+                _flushDurationEwma.Reset();
 
                 if (_includePercentileStats)
                 {
@@ -163,6 +178,9 @@ public sealed class StatsTracker
             latMax * MsRatio,
             svcMin * MsRatio,
             svcMax * MsRatio,
+            flushAvg * MsRatio,
+            flushMin * MsRatio,
+            flushMax * MsRatio,
             numOfTimeouts
             );
     }

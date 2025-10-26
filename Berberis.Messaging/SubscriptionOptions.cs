@@ -1,3 +1,4 @@
+using Berberis.Messaging.Conflation;
 using Berberis.Messaging.Exceptions;
 
 namespace Berberis.Messaging;
@@ -30,4 +31,14 @@ public class SubscriptionOptions
     /// Keep the callback fast to avoid blocking message processing.
     /// </remarks>
     public Action<HandlerTimeoutException>? OnTimeout { get; set; }
+
+    /// <summary>
+    /// Strategy for determining conflation intervals.
+    /// If null, uses FixedConflationStrategy with the conflation interval specified at subscription time.
+    /// </summary>
+    /// <remarks>
+    /// Custom strategies can dynamically adjust conflation intervals based on system metrics.
+    /// The strategy is initialized with the subscription's statistics tracker during subscription creation.
+    /// </remarks>
+    public ConflationStrategy? ConflationStrategy { get; set; }
 }

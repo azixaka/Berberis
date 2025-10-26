@@ -615,7 +615,10 @@ public class StatsTrackerTests
             minLatencyTimeMs: 0f,
             maxLatencyTimeMs: 0f,
             minServiceTimeMs: 0f,
-            maxServiceTimeMs: 0f);
+            maxServiceTimeMs: 0f,
+            avgFlushDurationMs: 0f,
+            minFlushDurationMs: 0f,
+            maxFlushDurationMs: 0f);
 
         // Act & Assert - Properties should return Infinity or NaN, not crash
         var conflationRatio = stats.ConflationRatio;

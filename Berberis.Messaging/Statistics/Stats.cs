@@ -45,6 +45,15 @@ public readonly struct Stats
     /// <summary>Percentile service time (ms).</summary>
     public readonly float PercentileServiceTimeMs;
 
+    /// <summary>Average flush duration (ms).</summary>
+    public readonly float AvgFlushDurationMs;
+
+    /// <summary>Min flush duration (ms).</summary>
+    public readonly float MinFlushDurationMs;
+
+    /// <summary>Max flush duration (ms).</summary>
+    public readonly float MaxFlushDurationMs;
+
     /// <summary>Total handler timeouts.</summary>
     public readonly long NumOfTimeouts;
 
@@ -87,6 +96,9 @@ public readonly struct Stats
         float maxLatencyTimeMs,
         float minServiceTimeMs,
         float maxServiceTimeMs,
+        float avgFlushDurationMs,
+        float minFlushDurationMs,
+        float maxFlushDurationMs,
         long numOfTimeouts = 0
         )
     {
@@ -104,6 +116,9 @@ public readonly struct Stats
         MaxLatencyTimeMs = maxLatencyTimeMs;
         MinServiceTimeMs = minServiceTimeMs;
         MaxServiceTimeMs = maxServiceTimeMs;
+        AvgFlushDurationMs = avgFlushDurationMs;
+        MinFlushDurationMs = minFlushDurationMs;
+        MaxFlushDurationMs = maxFlushDurationMs;
         NumOfTimeouts = numOfTimeouts;
     }
 }

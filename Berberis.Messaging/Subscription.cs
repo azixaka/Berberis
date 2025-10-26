@@ -1,4 +1,5 @@
-﻿using Berberis.Messaging.Statistics;
+﻿using Berberis.Messaging.Conflation;
+using Berberis.Messaging.Statistics;
 using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -22,6 +23,7 @@ public sealed partial class Subscription<TBody> : ISubscription
     private readonly TimeSpan? _handlerTimeout;
     private readonly Action<Exceptions.HandlerTimeoutException>? _onTimeoutAction;
     private long _timeoutCount;
+    private readonly ConflationStrategy? _conflationStrategy;
 
     internal Subscription(ILogger<Subscription<TBody>> logger,
         long id, string? subscriptionName, string channelName, int? bufferCapacity,
@@ -70,6 +72,19 @@ public sealed partial class Subscription<TBody> : ISubscription
             });
 
         Statistics = new StatsTracker(statsOptions);
+
+        // Initialize conflation strategy if conflation is enabled
+        if (options?.ConflationStrategy != null)
+        {
+            _conflationStrategy = options.ConflationStrategy;
+            _conflationStrategy.Initialize(Statistics);
+        }
+        else if (conflationIntervalInterval > TimeSpan.Zero)
+        {
+            _conflationStrategy = new FixedConflationStrategy(conflationIntervalInterval);
+            _conflationStrategy.Initialize(Statistics);
+        }
+        // else: _conflationStrategy remains null (no conflation)
     }
 
     /// <summary>Subscription name.</summary>
@@ -303,7 +318,10 @@ public sealed partial class Subscription<TBody> : ISubscription
 
             while (!token.IsCancellationRequested)
             {
-                var delay = ConflationInterval.Subtract(TimeSpan.FromMilliseconds(flushTookMs));
+                // Get next interval from strategy (or use fixed interval if no strategy)
+                var lastFlushDuration = TimeSpan.FromMilliseconds(flushTookMs);
+                var nextInterval = _conflationStrategy!.GetNextInterval(lastFlushDuration);
+                var delay = nextInterval.Subtract(lastFlushDuration);
 
                 if (delay > TimeSpan.Zero)
                 {
@@ -348,7 +366,11 @@ public sealed partial class Subscription<TBody> : ISubscription
                     }
                 }
 
-                flushTookMs = StatsTracker.TicksToTimeMs(StatsTracker.GetTicks() - startTicks);
+                var flushDurationTicks = StatsTracker.GetTicks() - startTicks;
+                flushTookMs = StatsTracker.TicksToTimeMs(flushDurationTicks);
+
+                // Record flush duration for statistics
+                Statistics.RecordFlushDuration(flushDurationTicks);
             }
         }
     }

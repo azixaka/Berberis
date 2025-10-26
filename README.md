@@ -10,7 +10,7 @@ Berberis CrossBar is a high-performance, allocation-free in-process message brok
 
 - **Typed Channels**: Each channel in Berberis CrossBar is a typed destination, creating a clear and efficient path for message passing between publishers and subscribers.
 
-- **Message Conflation**: Berberis CrossBar supports message conflation, enhancing the efficiency of your messaging system by preventing the overloading of channels with redundant or unnecessary data.
+- **Message Conflation**: Berberis CrossBar supports both fixed and dynamic (adaptive) message conflation. Dynamic conflation automatically adjusts intervals based on system metrics (queue length, conflation ratio, flush duration), preventing overload during traffic bursts while maintaining low latency during quiet periods.
 
 - **Record/Replay**: Capture message streams to binary files with zero-allocation recording and efficient playback. Features include metadata files for self-describing recordings, fast indexing for seeking in large files, progress reporting, and utilities for merging, splitting, and filtering recordings. Streaming index creation enables instant seeking without post-processing.
 
@@ -362,6 +362,70 @@ using var subscription = xBar.Subscribe<StockPrice>(
 - UI updates that don't need every intermediate state
 - Downstream systems that can't keep up with full message rates
 - Reducing processing overhead while maintaining data freshness
+
+#### Dynamic (Adaptive) Conflation
+
+For systems with variable load, you can use adaptive conflation strategies that automatically adjust the conflation interval based on system metrics like queue length, conflation ratio, or flush duration:
+
+```csharp
+using Berberis.Messaging.Conflation;
+
+// Create an adaptive strategy that adjusts from 100ms to 5s based on queue pressure
+var adaptiveStrategy = new AdaptiveConflationStrategy
+{
+    MinInterval = TimeSpan.FromMilliseconds(100),  // Fast when idle
+    MaxInterval = TimeSpan.FromSeconds(5),         // Slow when overloaded
+    Signal = AdaptiveSignal.QueueLength,           // What to monitor
+    QueueLengthThreshold = 1000,                   // Normalize queue pressure
+    SmoothingFactor = 0.7                          // Dampen oscillations (0-1)
+};
+
+using var subscription = xBar.Subscribe<StockPrice>(
+    channelName: "stock.prices",
+    handler: msg => ProcessPrice(msg),
+    options: new SubscriptionOptions
+    {
+        ConflationStrategy = adaptiveStrategy
+    }
+);
+```
+
+**Available Adaptive Signals:**
+- `AdaptiveSignal.QueueLength` - Adjust based on subscription queue depth
+- `AdaptiveSignal.ConflationRatio` - Adjust based on how much conflation is occurring
+- `AdaptiveSignal.FlushDuration` - Adjust based on batch processing time
+- `AdaptiveSignal.Combined` - Weighted combination of all signals
+
+**Custom Strategies:**
+
+You can implement your own conflation strategy by inheriting from `ConflationStrategy`:
+
+```csharp
+public class CustomStrategy : ConflationStrategy
+{
+    public override TimeSpan GetNextInterval(TimeSpan lastFlushDuration)
+    {
+        var stats = Statistics.GetStats(reset: false);
+
+        // Access flush duration metrics
+        if (stats.AvgFlushDurationMs > 100)
+            return TimeSpan.FromSeconds(2);  // Slow down
+
+        // Access other metrics
+        if (stats.QueueLength > 500)
+            return TimeSpan.FromSeconds(1);
+
+        return TimeSpan.FromMilliseconds(200);  // Normal speed
+    }
+}
+```
+
+**Benefits of Dynamic Conflation:**
+- Automatically adapts to system load without manual tuning
+- Maintains low latency during quiet periods
+- Prevents overload during traffic bursts
+- Reduces processing overhead while keeping data fresh
+- New flush duration metrics (Avg/Min/Max) help monitor batch processing performance
 
 ### Wildcard Subscriptions
 
@@ -741,6 +805,7 @@ Console.WriteLine($"P99 Latency: {stats.PercentileLatencyTimeMs:F4} ms");
 Console.WriteLine($"Avg Service Time: {stats.AvgServiceTimeMs:F4} ms");
 Console.WriteLine($"Queue Length: {stats.QueueLength}");
 Console.WriteLine($"Conflation Ratio: {stats.ConflationRatio:F4}");
+Console.WriteLine($"Avg Flush Duration: {stats.AvgFlushDurationMs:F4} ms");
 
 // Export all metrics to JSON
 using var memoryStream = new MemoryStream();
@@ -1061,6 +1126,9 @@ The mnemonic format uses shortened property names to reduce JSON payload size, i
 - `MinServiceTimeMs` / `MinSvc`: Minimum service time observed
 - `MaxServiceTimeMs` / `MaxSvc`: Maximum service time observed
 - `AvgResponseTimeMs` / `AvgRsp`: Average total time (latency + service time)
+- `AvgFlushDurationMs` / `AvgFlsh`: Average conflation flush duration (batch processing time)
+- `MinFlushDurationMs` / `MinFlsh`: Minimum flush duration observed
+- `MaxFlushDurationMs` / `MaxFlsh`: Maximum flush duration observed
 - `StatsPercentile` / `StPct`: Configured percentile (e.g., 99 for P99)
 - `PctLatencyTimeMs` / `PctLat`: Percentile latency time
 - `PctServiceTimeMs` / `PctSvc`: Percentile service time

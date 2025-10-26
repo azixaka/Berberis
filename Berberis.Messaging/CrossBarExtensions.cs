@@ -104,6 +104,9 @@ public static class CrossBarExtensions
             WriteFloatingPointNumber(writer, useMnemonics ? "MinSvc" : "MinServiceTimeMs", stats.MinServiceTimeMs);
             WriteFloatingPointNumber(writer, useMnemonics ? "MaxSvc" : "MaxServiceTimeMs", stats.MaxServiceTimeMs);
             WriteFloatingPointNumber(writer, useMnemonics ? "AvgRsp" : "AvgResponseTimeMs", stats.AvgResponseTime);
+            WriteFloatingPointNumber(writer, useMnemonics ? "AvgFlsh" : "AvgFlushDurationMs", stats.AvgFlushDurationMs);
+            WriteFloatingPointNumber(writer, useMnemonics ? "MinFlsh" : "MinFlushDurationMs", stats.MinFlushDurationMs);
+            WriteFloatingPointNumber(writer, useMnemonics ? "MaxFlsh" : "MaxFlushDurationMs", stats.MaxFlushDurationMs);
 
             var pct = subscription.Statistics.StatsOptions.Percentile;
 
