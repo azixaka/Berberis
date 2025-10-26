@@ -1010,6 +1010,9 @@ xBar.MetricsToJson(writer, useMnemonics: true, resetStats: false);
       "MinServiceTimeMs": 0.8000,
       "MaxServiceTimeMs": 5.6700,
       "AvgResponseTimeMs": 1.3750,
+      "AvgFlushDurationMs": 2.1500,
+      "MinFlushDurationMs": 1.5000,
+      "MaxFlushDurationMs": 4.8000,
       "StatsPercentile": 99,
       "PctLatencyTimeMs": 0.8900,
       "PctServiceTimeMs": 3.2100
@@ -1038,7 +1041,10 @@ xBar.MetricsToJson(writer, useMnemonics: true, resetStats: false);
       "AvgServiceTimeMs": 0.5600,
       "MinServiceTimeMs": 0.2000,
       "MaxServiceTimeMs": 2.3000,
-      "AvgResponseTimeMs": 0.6490
+      "AvgResponseTimeMs": 0.6490,
+      "AvgFlushDurationMs": 0.0000,
+      "MinFlushDurationMs": 0.0000,
+      "MaxFlushDurationMs": 0.0000
     }
   ]
 }
@@ -1084,6 +1090,9 @@ The mnemonic format uses shortened property names to reduce JSON payload size, i
       "MinSvc": 0.8000,
       "MaxSvc": 5.6700,
       "AvgRsp": 1.3750,
+      "AvgFlsh": 2.1500,
+      "MinFlsh": 1.5000,
+      "MaxFlsh": 4.8000,
       "StPct": 99,
       "PctLat": 0.8900,
       "PctSvc": 3.2100
